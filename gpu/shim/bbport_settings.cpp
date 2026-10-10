@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <string>
 #include <string_view>
 
@@ -15,6 +16,17 @@ namespace {
 const char* Path() {
     const char* env = std::getenv("BB_CONFIG");
     return env && env[0] ? env : "bbport.ini";
+}
+
+/// Modification time of the file as last read or written here; Reload() re-reads only a file
+/// changed by someone else since (the launcher), so menu changes not saved yet are kept.
+/// Atomic: the window thread reloads, the present thread (menu) saves.
+std::atomic<long long> seen_time{0};
+
+long long FileTime() {
+    std::error_code error;
+    const auto time = std::filesystem::last_write_time(Path(), error);
+    return error ? 0 : static_cast<long long>(time.time_since_epoch().count());
 }
 
 // Menu languages, in the order of BbI18n::Lang ("auto" or anything else: the system language).
@@ -135,6 +147,7 @@ void Load() {
         std::fclose(file);
         std::printf("Settings: %s\n", Path());
     }
+    seen_time = FileTime();
     // Environment overrides (scripts, A/B tests).
     if (const char* env = std::getenv("BB_UPSCALER")) {
         v.upscaler = UpscalerOff;
@@ -168,6 +181,10 @@ void Load() {
 
 void Reload() {
     auto& v = Get();
+    const long long time = FileTime();
+    if (seen_time.exchange(time) == time) {
+        return;
+    }
     if (FILE* file = std::fopen(Path(), "r")) {
         char line[256];
         while (std::fgets(line, sizeof(line), file)) {
@@ -180,6 +197,12 @@ void Reload() {
             Set(v, text.substr(0, eq), text.substr(eq + 1));
         }
         std::fclose(file);
+    }
+    // An external edit can name an upscaler this GPU cannot run.
+    if ((v.upscaler == UpscalerDlss && !v.dlss_supported) ||
+        (v.upscaler == UpscalerFsr4 && !v.fsr4_supported) ||
+        (v.upscaler == UpscalerFsr411 && !v.fsr411_supported)) {
+        v.upscaler = UpscalerFsr3;
     }
 }
 
@@ -262,6 +285,7 @@ void Save() {
     std::fprintf(file, "live_resolution=%s\n", v.live_resolution < 0 ? "auto"
                                                   : v.live_resolution ? "1" : "0");
     std::fclose(file);
+    seen_time = FileTime();
 }
 
 float PresetScale(int preset) {

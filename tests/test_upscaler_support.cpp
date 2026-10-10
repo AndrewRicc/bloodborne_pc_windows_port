@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Saved FSR 4 choices must be safe before the first rendered frame on older GPUs.
 #include <cassert>
+#include <chrono>
 #include <cstdio>
+#include <filesystem>
 #include <cstdlib>
 #include <initializer_list>
 #include <unistd.h>
@@ -77,6 +79,42 @@ int main() {
         }
     }
     }
+    // Reload() (polled while the game runs) keeps menu changes that are not saved yet and
+    // applies a file changed from outside (the launcher).
+    ConfigureUpscalerSupport(true, true, true);
+    s.upscaler = UpscalerFsr3;
+    s.preset = Quality;
+    Save();
+    s.preset = Balanced; // changed in the open menu, saved when it closes
+    s.sharpness = 1.25f;
+    Reload();
+    assert(s.preset == Balanced && s.sharpness == 1.25f);
+    {
+        FILE* config = std::fopen(path, "w");
+        assert(config);
+        std::fprintf(config, "upscaler=dlss\npreset=3\n");
+        std::fclose(config);
+        // Coarse file clocks: make sure the time differs from the one Save() left.
+        std::filesystem::last_write_time(
+            path, std::filesystem::last_write_time(path) + std::chrono::seconds(2));
+    }
+    Reload();
+    assert(s.upscaler == UpscalerDlss && s.preset == Performance);
+    s.preset = Quality;
+    Reload(); // unchanged file: nothing is read again
+    assert(s.preset == Quality);
+    ConfigureUpscalerSupport(true, true, false);
+    {
+        FILE* config = std::fopen(path, "w");
+        assert(config);
+        std::fprintf(config, "upscaler=dlss\n");
+        std::fclose(config);
+        std::filesystem::last_write_time(
+            path, std::filesystem::last_write_time(path) + std::chrono::seconds(4));
+    }
+    Reload(); // an external edit naming an unsupported upscaler
+    assert(s.upscaler == UpscalerFsr3);
+
     s.startup_preset = Quality;
     s.startup_upscaler = UpscalerFsr3;
     s.upscaler = UpscalerFsr3;
