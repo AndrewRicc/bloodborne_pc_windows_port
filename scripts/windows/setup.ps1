@@ -9,7 +9,9 @@ param(
     [switch]$SoloControllo,
     [string]$Msys = 'C:\msys64'
 )
-$ErrorActionPreference = 'Stop'
+# 'Continue': con 'Stop' PowerShell 5.1 tratta come errore fatale qualsiasi riga scritta su stderr da
+# un programma esterno (gli avvisi di CMake, i messaggi di git). Gli esiti sono controllati a mano.
+$ErrorActionPreference = 'Continue'
 $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Set-Location $repo
 
@@ -37,7 +39,7 @@ function Installa($nome, $id, $extra) {
 function Bash($comando) {
     $env:CHERE_INVOKING = '1'; $env:MSYSTEM = 'MINGW64'; $env:MSYS2_PATH_TYPE = ''
     # Out-Host: l'output va a schermo e non nel valore di ritorno della funzione.
-    & "$Msys\usr\bin\bash.exe" -lc $comando 2>&1 | Out-Host
+    & "$Msys\usr\bin\bash.exe" -lc $comando | Out-Host
     return $LASTEXITCODE
 }
 function TrovaPython {
