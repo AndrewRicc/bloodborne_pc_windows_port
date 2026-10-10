@@ -47,6 +47,7 @@ int main() {
     assert(RenderPreset() == NativeAA && !ResolutionNeedsRestart());
     s.upscaler = UpscalerFsr3;
     assert(RenderPreset() == Performance);
+    for (bool dlss : {false, true}) {
     for (bool fsr4 : {false, true}) {
         for (bool fsr411 : {false, true}) {
             for (int requested = 0; requested < UpscalerCount; ++requested) {
@@ -58,20 +59,23 @@ int main() {
                 s.fsr4_problem = nullptr;
                 Load();
                 assert(s.upscaler == requested);
-                ConfigureUpscalerSupport(fsr4, fsr411);
-                const bool unsupported = (requested == UpscalerFsr4 && !fsr4) ||
+                ConfigureUpscalerSupport(fsr4, fsr411, dlss);
+                const bool unsupported_fsr4 = (requested == UpscalerFsr4 && !fsr4) ||
                     (requested == UpscalerFsr411 && !(fsr4 && fsr411));
+                const bool unsupported = unsupported_fsr4 || (requested == UpscalerDlss && !dlss);
                 assert(s.upscaler == (unsupported ? UpscalerFsr3 : requested));
                 assert(s.fsr4_supported == fsr4);
                 assert(s.fsr411_supported == (fsr4 && fsr411));
-                assert(bool(s.fsr4_problem.load()) == unsupported);
+                assert(s.dlss_supported == dlss);
+                assert(bool(s.fsr4_problem.load()) == unsupported_fsr4);
                 assert(s.preset == Performance && s.output_res == 2);
                 // Startup patch settings still describe the already applied guest patches.
                 assert(s.startup_upscaler == requested);
-                ConfigureUpscalerSupport(fsr4, fsr411);
+                ConfigureUpscalerSupport(fsr4, fsr411, dlss);
                 assert(s.upscaler == (unsupported ? UpscalerFsr3 : requested));
             }
         }
+    }
     }
     s.startup_preset = Quality;
     s.startup_upscaler = UpscalerFsr3;

@@ -21,6 +21,7 @@
 #include "common/path_util.h"
 #include "core/emulator_settings.h"
 #include "sdl_window.h"
+#include "video_core/renderer_vulkan/vk_dlss.h"
 #include "video_core/renderer_vulkan/vk_platform.h"
 
 #ifdef __APPLE__
@@ -202,6 +203,15 @@ std::vector<const char*> GetInstanceExtensions(Frontend::WindowSystemType window
 
     if (enable_debug_utils) {
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    }
+
+    // bbport: what NGX needs for DLSS (vk_dlss.h), when bbdlss.dll is present.
+    for (const char* extension : Vulkan::Dlss::InstanceExtensions()) {
+        if (std::none_of(extensions.begin(), extensions.end(), [extension](const char* e) {
+                return std::strcmp(e, extension) == 0;
+            })) {
+            extensions.push_back(extension);
+        }
     }
 
     // Sanitize extension list

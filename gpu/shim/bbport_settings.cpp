@@ -17,6 +17,11 @@ const char* Path() {
     return env && env[0] ? env : "bbport.ini";
 }
 
+// Menu languages, in the order of BbI18n::Lang ("auto" or anything else: the system language).
+constexpr const char* LanguageCodes[] = {"en", "ru", "it", "es", "fr", "de",
+                                         "pt", "pl", "tr", "zh", "ja", "ko"};
+constexpr int LanguageCount = int(sizeof(LanguageCodes) / sizeof(LanguageCodes[0]));
+
 float Clamp(float v, float lo, float hi) {
     return std::clamp(v, lo, hi);
 }
@@ -52,10 +57,17 @@ void Set(Values& v, const std::string& key, const std::string& value) {
         v.debug_view = std::clamp(i, 0, DebugViewCount - 1);
     } else if (key == "show_fps") {
         v.show_fps = i != 0;
+    } else if (key == "language") {
+        v.language = -1;
+        for (int l = 0; l < LanguageCount; ++l) {
+            if (value == LanguageCodes[l]) v.language = l;
+        }
     } else if (key == "fsr4_auto_exposure") {
         v.fsr4_auto_exposure = i != 0;
     } else if (key == "fsr4_invert_jitter") {
         v.fsr4_invert_jitter = i != 0;
+    } else if (key == "dlss_invert_jitter") {
+        v.dlss_invert_jitter = i != 0;
     } else if (key == "model_lod") {
         v.model_lod = std::clamp(i, -2, 2);
     } else if (key == "live_resolution") {
@@ -130,11 +142,17 @@ void Load() {
     v.startup_live_resolution = v.live_resolution;
 }
 
-void ConfigureUpscalerSupport(bool fsr4, bool fsr411) {
+void ConfigureUpscalerSupport(bool fsr4, bool fsr411, bool dlss) {
     auto& v = Get();
     v.fsr4_supported = fsr4;
     v.fsr411_supported = fsr4 && fsr411;
+    v.dlss_supported = dlss;
     const int requested = v.upscaler;
+    if (requested == UpscalerDlss && !dlss) {
+        std::printf("Upscaler: DLSS unavailable; falling back to FSR 3.1 before the first frame\n");
+        v.upscaler = UpscalerFsr3;
+        return;
+    }
     if ((requested == UpscalerFsr4 && !v.fsr4_supported) ||
         (requested == UpscalerFsr411 && !v.fsr411_supported)) {
         v.fsr4_problem = "GPU does not support the selected FSR 4 shaders; using FSR 3.1";
@@ -175,17 +193,22 @@ void Save() {
                  "# bbport settings (in-game menu: Insert / L3+R3)\n"
                  "upscaler=%s\npreset=%d\nsharpen=%d\nsharpness=%.2f\njitter=%d\n"
                  "reactive=%d\nobject_motion=%d\nreactive_scale=%.2f\nreactive_threshold=%.2f\nreactive_max=%.2f\n"
-                 "debug_view=%d\nshow_fps=%d\nfsr4_auto_exposure=%d\nfsr4_invert_jitter=%d\n",
+                 "debug_view=%d\nshow_fps=%d\nfsr4_auto_exposure=%d\nfsr4_invert_jitter=%d\n"
+                 "dlss_invert_jitter=%d\n",
                  UpscalerName(v.upscaler), v.preset.load(), int(v.sharpen.load()),
                  v.sharpness.load(), int(v.jitter.load()), int(v.reactive.load()),
                  int(v.object_motion.load()),
                  v.reactive_scale.load(), v.reactive_threshold.load(), v.reactive_max.load(),
                  v.debug_view.load(), int(v.show_fps.load()),
-                 int(v.fsr4_auto_exposure.load()), int(v.fsr4_invert_jitter.load()));
+                 int(v.fsr4_auto_exposure.load()), int(v.fsr4_invert_jitter.load()),
+                 int(v.dlss_invert_jitter.load()));
     // Read by patches.py at start.
     for (int e = 0; e < EffectCount; ++e) {
         std::fprintf(file, "%s=%d\n", Effects[e].key, int(v.effects[e].load()));
     }
+    const int language = v.language;
+    std::fprintf(file, "language=%s\n",
+                 language >= 0 && language < LanguageCount ? LanguageCodes[language] : "auto");
     std::fprintf(file, "model_lod=%d\noutput_res=%dx%d\n", v.model_lod.load(),
                  OutputWidths[v.output_res], OutputHeights[v.output_res]);
     // Read by run.sh at start.
@@ -206,7 +229,8 @@ const char* PresetName(int preset) {
 }
 
 const char* UpscalerName(int upscaler) {
-    static constexpr const char* names[UpscalerCount] = {"off", "fsr3", "fsr4", "fsr411", "taa"};
+    static constexpr const char* names[UpscalerCount] = {"off", "fsr3", "fsr4", "fsr411", "taa",
+                                                                 "dlss"};
     return names[std::clamp(upscaler, 0, UpscalerCount - 1)];
 }
 

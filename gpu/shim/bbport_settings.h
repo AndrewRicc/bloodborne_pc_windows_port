@@ -10,7 +10,7 @@
 namespace BbSettings {
 
 enum Upscaler : int { UpscalerOff = 0, UpscalerFsr3 = 1, UpscalerFsr4 = 2, UpscalerFsr411 = 3,
-                      UpscalerTaa = 4, UpscalerCount };
+                      UpscalerTaa = 4, UpscalerDlss = 5, UpscalerCount };
 /// FSR 4 v07 or FSR 4.1.1: the same inputs, settings and placement in the frame.
 inline bool IsFsr4(int upscaler) {
     return upscaler == UpscalerFsr4 || upscaler == UpscalerFsr411;
@@ -19,23 +19,22 @@ enum Preset : int { NativeAA = 0, Quality, Balanced, Performance, UltraPerforman
 enum DebugView : int { DebugNone = 0, DebugReactive = 1, DebugMotion = 2, DebugViewCount };
 
 /// Game effects switched by the community patches at start (patches.py EFFECTS): ini key,
-/// menu label, default (the game's own behaviour).
+/// default (the game's own behaviour). Menu labels: BbI18n::EffChromatic.. in this order.
 struct Effect {
     const char* key;
-    const char* label;
     bool default_on;
 };
 inline constexpr Effect Effects[] = {
-    {"effect_chromatic_aberration", "Хроматическая аберрация", true},
-    {"effect_dof", "Глубина резкости (DoF)", true},
-    {"effect_motion_blur", "Размытие в движении", true},
-    {"effect_ssao", "Затенение SSAO", true},
-    {"effect_game_aa", "Собственное сглаживание игры", true},
-    {"effect_dynamic_shadows", "Тени от динамических источников", true},
-    {"effect_ssr", "Отражения SSR (не было в игре)", false},
-    {"skip_intro", "Пропуск заставок при запуске", false},
-    {"debug_camera", "Свободная камера (Cross + L3)", false},
-    {"debug_menu", "Debug menu (нужны файлы шрифтов)", false},
+    {"effect_chromatic_aberration", true},
+    {"effect_dof", true},
+    {"effect_motion_blur", true},
+    {"effect_ssao", true},
+    {"effect_game_aa", true},
+    {"effect_dynamic_shadows", true},
+    {"effect_ssr", false},
+    {"skip_intro", false},
+    {"debug_camera", false},
+    {"debug_menu", false},
 };
 inline constexpr int EffectCount = int(sizeof(Effects) / sizeof(Effects[0]));
 /// Live output resolutions: the upscaler's output and the UI host targets.
@@ -57,9 +56,11 @@ struct Values {
     std::atomic<float> reactive_max{0.9f};
     std::atomic<int> debug_view{DebugNone};
     std::atomic<bool> show_fps{false};
+    std::atomic<int> language{-1}; ///< BbI18n::Lang of the menu, -1 the system language
     // FSR 4 checks (menu): the provider's auto exposure, the jitter sign it is given.
     std::atomic<bool> fsr4_auto_exposure{true};
     std::atomic<bool> fsr4_invert_jitter{false};
+    std::atomic<bool> dlss_invert_jitter{false};
     std::atomic<int> active_render_width{1920}, active_render_height{1080};
     /// Applied at start (patches.py); the menu shows when a restart is needed.
     std::atomic<bool> effects[EffectCount]{};
@@ -70,7 +71,9 @@ struct Values {
     std::atomic<int> live_resolution{0};
     /// Why FSR 4 cannot run (assets, device features), or null. Set by the renderer.
     std::atomic<const char*> fsr4_problem{nullptr};
-    std::atomic<bool> fsr4_supported{false}, fsr411_supported{false};
+    std::atomic<bool> fsr4_supported{false}, fsr411_supported{false}, dlss_supported{false};
+    /// Why DLSS cannot run (bbdlss.dll, GPU, driver), or null. Set by the renderer.
+    std::atomic<const char*> dlss_problem{nullptr};
 
     /// Startup settings for the explicit BB_RENDER_RES compatibility patch only.
     int startup_preset = NativeAA;
@@ -86,8 +89,8 @@ Values& Get();
 
 /// Reads the file, then the environment overrides. Called once at start.
 void Load();
-/// Checks the loaded choice before the first frame; unsupported FSR 4 uses FSR 3.1.
-void ConfigureUpscalerSupport(bool fsr4, bool fsr411);
+/// Checks the loaded choice before the first frame; unsupported FSR 4 or DLSS uses FSR 3.1.
+void ConfigureUpscalerSupport(bool fsr4, bool fsr411, bool dlss = false);
 /// Startup-patched scene dimensions cannot change until run.sh prepares a new image.
 bool FixedRenderSession();
 int RenderPreset();
