@@ -32,7 +32,9 @@ function Installa($nome, $id, $extra) {
     Faccio $nome
     $argomenti = @('install', '--id', $id, '-e') + $extra
     & winget @argomenti | Out-Host
-    if ($LASTEXITCODE -ne 0) { Errore "installazione di $nome fallita (winget, codice $LASTEXITCODE)" }
+    # -1978335189: winget trova il pacchetto gia' installato e senza aggiornamenti. Non e' un errore.
+    if ($LASTEXITCODE -eq -1978335189) { Avviso "$nome risulta gia' installato secondo winget" }
+    elseif ($LASTEXITCODE -ne 0) { Errore "installazione di $nome fallita (winget, codice $LASTEXITCODE)" }
     AggiornaPath
     return $true
 }
@@ -43,8 +45,16 @@ function Bash($comando) {
     return $LASTEXITCODE
 }
 function TrovaPython {
-    foreach ($p in (& where.exe python 2>$null)) {
-        if ($p -match 'WindowsApps') { continue }
+    # Python puo' essere installato senza essere nel PATH: oltre al PATH si guardano il launcher
+    # "py" e le cartelle di installazione abituali.
+    $candidati = @(& where.exe python 2>$null)
+    if (Get-Command py -ErrorAction SilentlyContinue) { $candidati += @(& py -3 -c "import sys;print(sys.executable)" 2>$null) }
+    foreach ($modello in "$env:ProgramFiles\Python3*\python.exe", "$env:LocalAppData\Programs\Python\Python3*\python.exe",
+                         "$env:LocalAppData\Python\*\python.exe") {
+        $candidati += @(Get-ChildItem $modello -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | ForEach-Object FullName)
+    }
+    foreach ($p in $candidati) {
+        if (-not $p -or $p -match 'WindowsApps' -or -not (Test-Path $p)) { continue }
         $v = & $p -c "import sys,tkinter;print('%d.%d' % sys.version_info[:2])" 2>$null
         if ($v -and [version]$v -ge [version]'3.10') { return $p }
     }
@@ -81,7 +91,8 @@ $py = TrovaPython
 if ($py) { Ok "Python con tkinter ($py)" }
 elseif (Installa 'Python 3.13' 'Python.Python.3.13' @()) {
     $py = TrovaPython
-    if (-not $py) { Errore 'Python installato ma non ancora visibile: chiudi questa finestra, riaprila e rilancia setup.bat' }
+    if (-not $py) { Errore 'Python risulta installato ma non trovo un python.exe 3.10+ con tkinter: chiudi questa finestra, riaprila e rilancia setup.bat; se si ripete, reinstalla Python da python.org con le opzioni predefinite' }
+    Ok "Python con tkinter ($py)"
 }
 
 $msysNuovo = $false
@@ -172,6 +183,8 @@ if ($SoloControllo) {
 Titolo 'Compilazione'
 if (Get-Process bbport -ErrorAction SilentlyContinue) { Errore 'il gioco e'' aperto: chiudilo e rilancia setup.bat' }
 Write-Host 'La prima volta servono 20-30 minuti.'
+# Lo script di build usa questo Python anche quando non e' nel PATH.
+$env:PYTHON = $py -replace '\\', '/'
 if ((Bash 'bash scripts/windows/build_bbport.sh') -ne 0) { Errore 'compilazione del gioco fallita' }
 if ($dlss) {
     & cmd /c 'gpu\dlss\build_bbdlss.bat'
