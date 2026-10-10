@@ -1,9 +1,10 @@
 #!/bin/bash
 # Builds the Bloodborne PC port with MSYS2 MinGW64 (parallel version of build.bat), including
 # the workarounds needed with recent MSYS2 packages (GCC 16, VMA header in include/vma).
-# Usage (from an MSYS2 shell or bash -lc):  bash build_bbport.sh /d/path/to/repo [jobs]
+# Usage (from an MSYS2 shell or bash -lc):  bash build_bbport.sh [/d/path/to/repo] [jobs]
+# Without arguments it builds the repository this script belongs to.
 set -e
-REPO="${1:-$PWD}"
+REPO="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 JOBS="${2:-$(nproc)}"
 export PATH=/mingw64/bin:$PATH
 cd "$REPO"

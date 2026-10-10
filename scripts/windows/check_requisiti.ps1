@@ -1,11 +1,19 @@
 # Controlla i requisiti per compilare e usare il port di Bloodborne con DLSS e menu multilingua.
-# Uso:  powershell -ExecutionPolicy Bypass -File check_requisiti.ps1 [-Gioco D:\percorso\CUSA03173] [-DlssSdk D:\bbport\dlss-sdk]
+# Uso:  powershell -ExecutionPolicy Bypass -File check_requisiti.ps1 [-Gioco D:\percorso\CUSA03173] [-DlssSdk D:\percorso\dlss-sdk]
+# Senza parametri controlla modules\game\CUSA03173 e modules\dlss-sdk.
 # Non modifica nulla: stampa [OK], [MANCA] o [AVVISO] per ogni voce ed esce con 1 se manca qualcosa.
 param(
     [string]$Gioco = '',
-    [string]$DlssSdk = (Join-Path (Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent) 'dlss-sdk'),
+    [string]$DlssSdk = '',
     [string]$Msys = 'C:\msys64'
 )
+$repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+if (-not $Gioco -and (Test-Path (Join-Path $repo 'modules\game\CUSA03173'))) { $Gioco = Join-Path $repo 'modules\game\CUSA03173' }
+if (-not $DlssSdk) {
+    $DlssSdk = Join-Path $repo 'modules\dlss-sdk'
+    $accanto = Join-Path (Split-Path $repo -Parent) 'dlss-sdk'
+    if (-not (Test-Path $DlssSdk) -and (Test-Path $accanto)) { $DlssSdk = $accanto }
+}
 
 $script:mancanti = 0
 function Ok($t)     { Write-Host "[OK]     $t" -ForegroundColor Green }
@@ -34,7 +42,7 @@ else { Avviso 'versione Vulkan non rilevata: aggiorna il driver della scheda vid
 if ($gpus | Where-Object { $_.Name -match 'RTX' }) { Ok 'GPU NVIDIA RTX presente (necessaria solo per il DLSS)' }
 else { Avviso 'nessuna GPU NVIDIA RTX: il gioco funziona, ma il DLSS non sara'' disponibile' }
 
-$libero = [math]::Round((Get-PSDrive ($PSScriptRoot.Substring(0,1))).Free / 1GB)
+$libero = [math]::Floor((Get-PSDrive ($PSScriptRoot.Substring(0,1))).Free / 1GB)
 if ($libero -ge 15) { Ok "spazio libero sul disco: $libero GB" } else { Avviso "spazio libero sul disco: $libero GB (ne servono circa 15)" }
 
 Write-Host '== Programmi'
@@ -59,15 +67,15 @@ Write-Host '== MSYS2 e librerie'
 if (Test-Path "$Msys\usr\bin\bash.exe") {
     Ok "MSYS2 in $Msys"
     foreach ($t in 'gcc.exe','cmake.exe','ninja.exe','glslang.exe','pkgconf.exe') {
-        if (Test-Path "$Msys\mingw64\bin\$t") { Ok "MinGW64: $t" } else { Manca "MinGW64: $t (esegui install_deps.sh)" }
+        if (Test-Path "$Msys\mingw64\bin\$t") { Ok "MinGW64: $t" } else { Manca "MinGW64: $t (esegui setup.bat)" }
     }
     $hdr = @{ 'SDL3' = 'SDL3\SDL.h'; 'Vulkan headers' = 'vulkan\vulkan.h'; 'VMA' = 'vma\vk_mem_alloc.h'; 'FFmpeg' = 'libavcodec\avcodec.h';
               'Boost' = 'boost\version.hpp'; 'fmt' = 'fmt\format.h'; 'Zydis' = 'Zydis\Zydis.h'; 'xxhash' = 'xxhash.h';
               'robin-map' = 'tsl\robin_map.h'; 'magic_enum' = 'magic_enum\magic_enum.hpp'; 'xbyak' = 'xbyak\xbyak.h'; 'miniz' = 'miniz.h' }
     foreach ($k in $hdr.Keys | Sort-Object) {
-        if (Test-Path "$Msys\mingw64\include\$($hdr[$k])") { Ok "libreria: $k" } else { Manca "libreria: $k (esegui install_deps.sh)" }
+        if (Test-Path "$Msys\mingw64\include\$($hdr[$k])") { Ok "libreria: $k" } else { Manca "libreria: $k (esegui setup.bat)" }
     }
-    if (Test-Path "$Msys\mingw64\lib\libminiz.a") { Ok 'libreria: miniz (libminiz.a)' } else { Manca 'libreria: libminiz.a (esegui install_deps.sh)' }
+    if (Test-Path "$Msys\mingw64\lib\libminiz.a") { Ok 'libreria: miniz (libminiz.a)' } else { Manca 'libreria: libminiz.a (esegui setup.bat)' }
 } else { Manca "MSYS2 in $Msys (winget install --id MSYS2.MSYS2 -e)" }
 
 Write-Host '== SDK DLSS'
@@ -82,7 +90,7 @@ if ($Gioco) {
         if ((Split-Path $Gioco -Leaf) -eq 'CUSA03173' -and $txt -match '01\.09') { Ok "dump del gioco CUSA03173 versione 1.09 ($Gioco)" }
         else { Manca 'il dump deve essere CUSA03173 aggiornato alla versione 1.09' }
     } else { Manca "in $Gioco mancano eboot.bin, dvdroot_ps4 o sce_sys\param.sfo" }
-} else { Avviso 'dump del gioco non controllato: ripeti con -Gioco "D:\percorso\CUSA03173"' }
+} else { Avviso 'dump del gioco non trovato in modules\game\CUSA03173: copialo li'', oppure ripeti con -Gioco "D:\percorso\CUSA03173"' }
 
 Write-Host ''
 if ($script:mancanti) { Write-Host "Requisiti mancanti: $script:mancanti" -ForegroundColor Red; exit 1 }

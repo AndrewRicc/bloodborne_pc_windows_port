@@ -1,10 +1,12 @@
 @echo off
 rem bbport: builds out\bbdlss.dll (MSVC) and copies nvngx_dlss.dll next to bbport.exe.
-rem   DLSS_SDK  NVIDIA DLSS SDK checkout (github.com/NVIDIA/DLSS), default ..\dlss-sdk
+rem   DLSS_SDK  NVIDIA DLSS SDK checkout (github.com/NVIDIA/DLSS), default modules\dlss-sdk,
+rem             else ..\dlss-sdk
 rem   VK_INC    folder holding vulkan\vulkan.h and vk_video\, default C:\msys64\mingw64\include
 rem             (only those two folders are copied, the MinGW CRT headers are not used)
 setlocal enabledelayedexpansion
 cd /d "%~dp0..\.."
+if not defined DLSS_SDK if exist "%CD%\modules\dlss-sdk\include\nvsdk_ngx_vk.h" set "DLSS_SDK=%CD%\modules\dlss-sdk"
 if not defined DLSS_SDK set "DLSS_SDK=%CD%\..\dlss-sdk"
 if not defined VK_INC set "VK_INC=C:\msys64\mingw64\include"
 if not exist "%DLSS_SDK%\include\nvsdk_ngx_vk.h" (
