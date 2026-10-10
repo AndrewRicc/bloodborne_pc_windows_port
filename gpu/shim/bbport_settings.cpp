@@ -62,6 +62,14 @@ void Set(Values& v, const std::string& key, const std::string& value) {
         for (int l = 0; l < LanguageCount; ++l) {
             if (value == LanguageCodes[l]) v.language = l;
         }
+    } else if (key == "show_hud") {
+        v.show_hud = i != 0;
+    } else if (key == "hud_quadrant") {
+        v.hud_quadrant = std::clamp(i, 0, HudQuadrantCount - 1);
+    } else if (key == "hud_opacity") {
+        v.hud_opacity = Clamp(f, 0.1f, 1.0f);
+    } else if (key == "hud_scale") {
+        v.hud_scale = Clamp(f, 0.5f, 2.5f);
     } else if (key == "fsr4_auto_exposure") {
         v.fsr4_auto_exposure = i != 0;
     } else if (key == "fsr4_invert_jitter") {
@@ -72,6 +80,20 @@ void Set(Values& v, const std::string& key, const std::string& value) {
         v.model_lod = std::clamp(i, -2, 2);
     } else if (key == "live_resolution") {
         v.live_resolution = value == "auto" ? -1 : std::clamp(i, 0, 1);
+    } else if (key == "mk_enabled") {
+        v.mk_enabled = i != 0;
+    } else if (key == "mk_sens_x") {
+        v.mk_sens_x = Clamp(f, 0.1f, 10.0f);
+    } else if (key == "mk_sens_y") {
+        v.mk_sens_y = Clamp(f, 0.1f, 10.0f);
+    } else if (key == "mk_invert_x") {
+        v.mk_invert_x = i != 0;
+    } else if (key == "mk_invert_y") {
+        v.mk_invert_y = i != 0;
+    } else if (key == "mk_deadzone") {
+        v.mk_deadzone = Clamp(f, 0.0f, 0.5f);
+    } else if (key == "mk_smoothing") {
+        v.mk_smoothing = Clamp(f, 0.0f, 1.0f);
     } else if (key == "output_res") {
         for (int r = 0; r < OutputCount; ++r) {
             if (value == std::to_string(OutputWidths[r]) + "x" + std::to_string(OutputHeights[r])) {
@@ -125,6 +147,8 @@ void Load() {
         {"BB_REACTIVE", "reactive"},              {"BB_REACTIVE_SCALE", "reactive_scale"},
         {"BB_REACTIVE_THRESHOLD", "reactive_threshold"}, {"BB_REACTIVE_MAX", "reactive_max"},
         {"BB_UPSCALE_PRESET", "preset"},            {"BB_OBJECT_MOTION", "object_motion"},
+        {"BB_HUD", "show_hud"},                     {"BB_HUD_QUADRANT", "hud_quadrant"},
+        {"BB_HUD_OPACITY", "hud_opacity"},          {"BB_HUD_SCALE", "hud_scale"},
     };
     for (const auto& [env, key] : env_keys) {
         if (const char* value = std::getenv(env)) {
@@ -140,6 +164,23 @@ void Load() {
     v.startup_model_lod = v.model_lod;
     v.startup_output_res = v.output_res;
     v.startup_live_resolution = v.live_resolution;
+}
+
+void Reload() {
+    auto& v = Get();
+    if (FILE* file = std::fopen(Path(), "r")) {
+        char line[256];
+        while (std::fgets(line, sizeof(line), file)) {
+            std::string text{line};
+            text.erase(text.find_last_not_of(" \t\r\n") + 1);
+            const auto eq = text.find('=');
+            if (text.empty() || text[0] == '#' || eq == std::string::npos) {
+                continue;
+            }
+            Set(v, text.substr(0, eq), text.substr(eq + 1));
+        }
+        std::fclose(file);
+    }
 }
 
 void ConfigureUpscalerSupport(bool fsr4, bool fsr411, bool dlss) {
@@ -193,15 +234,21 @@ void Save() {
                  "# bbport settings (in-game menu: Insert / L3+R3)\n"
                  "upscaler=%s\npreset=%d\nsharpen=%d\nsharpness=%.2f\njitter=%d\n"
                  "reactive=%d\nobject_motion=%d\nreactive_scale=%.2f\nreactive_threshold=%.2f\nreactive_max=%.2f\n"
-                 "debug_view=%d\nshow_fps=%d\nfsr4_auto_exposure=%d\nfsr4_invert_jitter=%d\n"
-                 "dlss_invert_jitter=%d\n",
+                 "debug_view=%d\nshow_fps=%d\nshow_hud=%d\nhud_quadrant=%d\nhud_opacity=%.2f\nhud_scale=%.2f\n"
+                 "fsr4_auto_exposure=%d\nfsr4_invert_jitter=%d\ndlss_invert_jitter=%d\n"
+                 "mk_enabled=%d\nmk_sens_x=%.2f\nmk_sens_y=%.2f\nmk_invert_x=%d\nmk_invert_y=%d\nmk_deadzone=%.2f\nmk_smoothing=%.2f\n",
                  UpscalerName(v.upscaler), v.preset.load(), int(v.sharpen.load()),
                  v.sharpness.load(), int(v.jitter.load()), int(v.reactive.load()),
                  int(v.object_motion.load()),
                  v.reactive_scale.load(), v.reactive_threshold.load(), v.reactive_max.load(),
                  v.debug_view.load(), int(v.show_fps.load()),
+                 int(v.show_hud.load()), v.hud_quadrant.load(),
+                 v.hud_opacity.load(), v.hud_scale.load(),
                  int(v.fsr4_auto_exposure.load()), int(v.fsr4_invert_jitter.load()),
-                 int(v.dlss_invert_jitter.load()));
+                 int(v.dlss_invert_jitter.load()),
+                 int(v.mk_enabled.load()), v.mk_sens_x.load(), v.mk_sens_y.load(),
+                 int(v.mk_invert_x.load()), int(v.mk_invert_y.load()),
+                 v.mk_deadzone.load(), v.mk_smoothing.load());
     // Read by patches.py at start.
     for (int e = 0; e < EffectCount; ++e) {
         std::fprintf(file, "%s=%d\n", Effects[e].key, int(v.effects[e].load()));

@@ -902,6 +902,144 @@ constexpr Entry kEntries[] = {
     "Enter para confirmar, Esc para cancelar", "Enter — zatwierdź, Esc — anuluj",
     "Onaylamak için Enter, iptal için Esc", "按 Enter 确认，Esc 取消",
     "Enter で決定、Esc でキャンセル", "Enter로 확인, Esc로 취소"}},
+{ShowHud, {
+    "Performance HUD", "Нативный оверлей производительности (HUD)", "HUD delle prestazioni",
+    "HUD de rendimiento", "HUD de performances", "Leistungs-HUD", "HUD de desempenho",
+    "HUD wydajności", "Performans HUD'u", "性能 HUD", "パフォーマンス HUD", "성능 HUD"}},
+{HudHint, {
+    "In-game telemetry overlay (F11 / Shift+Tab): FPS, frametime graph, VRAM, CPU, RAM and "
+    "render metrics.",
+    "Внутриигровой оверлей телеметрии (F11 / Shift+Tab): FPS, график фреймтайма, VRAM, CPU, RAM "
+    "и метрики рендера",
+    "Overlay di telemetria in gioco (F11 / Shift+Tab): FPS, grafico del frametime, VRAM, CPU, "
+    "RAM e metriche di rendering.",
+    "Superposición de telemetría en el juego (F11 / Shift+Tab): FPS, gráfico de tiempos de "
+    "fotograma, VRAM, CPU, RAM y métricas de render.",
+    "Affichage de télémétrie en jeu (F11 / Shift+Tab) : FPS, graphique du temps d'image, VRAM, "
+    "CPU, RAM et métriques de rendu.",
+    "Telemetrie-Overlay im Spiel (F11 / Shift+Tab): FPS, Frametime-Graph, VRAM, CPU, RAM und "
+    "Rendermetriken.",
+    "Sobreposição de telemetria no jogo (F11 / Shift+Tab): FPS, gráfico de tempo de quadro, "
+    "VRAM, CPU, RAM e métricas de renderização.",
+    "Nakładka telemetrii w grze (F11 / Shift+Tab): FPS, wykres czasu klatki, VRAM, CPU, RAM i "
+    "metryki renderowania.",
+    "Oyun içi telemetri katmanı (F11 / Shift+Tab): FPS, kare süresi grafiği, VRAM, CPU, RAM ve "
+    "işleme ölçümleri.",
+    "游戏内遥测浮层（F11 / Shift+Tab）：帧率、帧时间曲线、显存、CPU、内存和渲染指标。",
+    "ゲーム内テレメトリー表示（F11 / Shift+Tab）：FPS、フレームタイムのグラフ、VRAM、CPU、RAM、"
+    "描画メトリクス。",
+    "게임 내 텔레메트리 오버레이(F11 / Shift+Tab): FPS, 프레임 타임 그래프, VRAM, CPU, RAM 및 렌더 "
+    "지표."}},
+{HudQuadTopLeft, {
+    "Top left", "Сверху слева", "In alto a sinistra", "Arriba a la izquierda",
+    "En haut à gauche", "Oben links", "Superior esquerdo", "Lewy górny róg", "Sol üst", "左上",
+    "左上", "왼쪽 위"}},
+{HudQuadTopRight, {
+    "Top right", "Сверху справа", "In alto a destra", "Arriba a la derecha", "En haut à droite",
+    "Oben rechts", "Superior direito", "Prawy górny róg", "Sağ üst", "右上", "右上", "오른쪽 위"}},
+{HudQuadBottomLeft, {
+    "Bottom left", "Снизу слева", "In basso a sinistra", "Abajo a la izquierda",
+    "En bas à gauche", "Unten links", "Inferior esquerdo", "Lewy dolny róg", "Sol alt", "左下",
+    "左下", "왼쪽 아래"}},
+{HudQuadBottomRight, {
+    "Bottom right", "Снизу справа", "In basso a destra", "Abajo a la derecha",
+    "En bas à droite", "Unten rechts", "Inferior direito", "Prawy dolny róg", "Sağ alt", "右下",
+    "右下", "오른쪽 아래"}},
+{HudPosition, {
+    "HUD position", "Расположение HUD", "Posizione HUD", "Posición del HUD", "Position du HUD",
+    "HUD-Position", "Posição do HUD", "Położenie HUD", "HUD konumu", "HUD 位置", "HUD の位置",
+    "HUD 위치"}},
+{HudOpacity, {
+    "HUD opacity", "Прозрачность HUD", "Opacità HUD", "Opacidad del HUD", "Opacité du HUD",
+    "HUD-Deckkraft", "Opacidade do HUD", "Krycie HUD", "HUD opaklığı", "HUD 不透明度",
+    "HUD の不透明度", "HUD 불투명도"}},
+{HudScale, {
+    "HUD scale", "Масштаб HUD", "Scala HUD", "Escala del HUD", "Échelle du HUD", "HUD-Größe",
+    "Escala do HUD", "Skala HUD", "HUD ölçeği", "HUD 缩放", "HUD のスケール", "HUD 배율"}},
+{SecMk, {
+    "Mouse and keyboard controls (M&K)", "Управление мышью и клавиатурой (M&K)",
+    "Controlli mouse e tastiera (M&K)", "Controles de ratón y teclado (M&K)",
+    "Commandes souris et clavier (M&K)", "Maus- und Tastatursteuerung (M&K)",
+    "Controles de mouse e teclado (M&K)", "Sterowanie myszą i klawiaturą (M&K)",
+    "Fare ve klavye kontrolleri (M&K)", "键鼠操作（M&K）", "マウスとキーボード操作 (M&K)",
+    "마우스 및 키보드 조작 (M&K)"}},
+{MkEnable, {
+    "Enable mouse and keyboard controls", "Включить управление мышью и клавиатурой",
+    "Attiva i controlli mouse e tastiera", "Activar controles de ratón y teclado",
+    "Activer les commandes souris et clavier", "Maus- und Tastatursteuerung aktivieren",
+    "Ativar controles de mouse e teclado", "Włącz sterowanie myszą i klawiaturą",
+    "Fare ve klavye kontrollerini etkinleştir", "启用键鼠操作",
+    "マウスとキーボード操作を有効化", "마우스 및 키보드 조작 사용"}},
+{MkHint, {
+    "Souls-style PC control scheme: mouse look (cursor captured), LMB: normal attack (R1), "
+    "Shift+LMB: strong attack (R2), RMB: gun / left hand (L2), MMB: lock on (R3), Tab: transform "
+    "weapon (L1).",
+    "Схема управления в стиле Souls PC: обзор мышью (захват курсора), ЛКМ - обычная атака (R1), "
+    "Shift+ЛКМ - сильная (R2), ПКМ - выстрел/левая рука (L2), СКМ - захват цели (R3), Tab - "
+    "трансформация оружия (L1)",
+    "Schema di controllo in stile Souls per PC: visuale con il mouse (cursore catturato), clic "
+    "sinistro: attacco normale (R1), Shift+clic sinistro: attacco potente (R2), clic destro: arma "
+    "da fuoco / mano sinistra (L2), clic centrale: aggancio del bersaglio (R3), Tab: "
+    "trasformazione dell'arma (L1).",
+    "Esquema de control estilo Souls para PC: cámara con el ratón (cursor capturado), clic "
+    "izquierdo: ataque normal (R1), Shift+clic izquierdo: ataque fuerte (R2), clic derecho: arma "
+    "de fuego / mano izquierda (L2), clic central: fijar objetivo (R3), Tab: transformar el arma "
+    "(L1).",
+    "Schéma de contrôle PC façon Souls : caméra à la souris (curseur capturé), clic gauche : "
+    "attaque normale (R1), Shift+clic gauche : attaque puissante (R2), clic droit : arme à feu / "
+    "main gauche (L2), clic molette : verrouillage de cible (R3), Tab : transformation de l'arme "
+    "(L1).",
+    "Steuerung im Stil der Souls-PC-Spiele: Maus-Kamera (Mauszeiger gefangen), LMB: normaler "
+    "Angriff (R1), Shift+LMB: starker Angriff (R2), RMB: Schusswaffe / linke Hand (L2), MMB: Ziel "
+    "erfassen (R3), Tab: Waffe transformieren (L1).",
+    "Esquema de controle no estilo Souls para PC: câmera com o mouse (cursor capturado), clique "
+    "esquerdo: ataque normal (R1), Shift+clique esquerdo: ataque forte (R2), clique direito: arma "
+    "de fogo / mão esquerda (L2), clique do meio: travar mira (R3), Tab: transformar a arma (L1).",
+    "Sterowanie w stylu Souls na PC: kamera myszą (kursor przechwycony), LPM: zwykły atak (R1), "
+    "Shift+LPM: silny atak (R2), PPM: broń palna / lewa ręka (L2), ŚPM: namierzanie celu (R3), "
+    "Tab: transformacja broni (L1).",
+    "Souls tarzı PC kontrol düzeni: fareyle bakış (imleç yakalanır), sol tık: normal saldırı "
+    "(R1), Shift+sol tık: güçlü saldırı (R2), sağ tık: ateşli silah / sol el (L2), orta tık: "
+    "hedefe kilitlenme (R3), Tab: silahı dönüştürme (L1).",
+    "魂系 PC 风格操作：鼠标控制视角（锁定光标），左键：普通攻击（R1），Shift+左键：重攻击（R2），"
+    "右键：枪械/左手（L2），中键：锁定目标（R3），Tab：武器变形（L1）。",
+    "Souls 系 PC 風の操作：マウスで視点操作（カーソルを固定）、左クリック：通常攻撃 (R1)、"
+    "Shift+左クリック：強攻撃 (R2)、右クリック：銃／左手 (L2)、中クリック：ロックオン (R3)、"
+    "Tab：武器変形 (L1)。",
+    "소울 PC 스타일 조작: 마우스 시점(커서 고정), 좌클릭: 일반 공격(R1), Shift+좌클릭: 강공격(R2), "
+    "우클릭: 총기/왼손(L2), 휠 클릭: 록온(R3), Tab: 무기 변형(L1)."}},
+{MkSensX, {
+    "Horizontal sensitivity (X)", "Чувствительность по горизонтали (X)",
+    "Sensibilità orizzontale (X)", "Sensibilidad horizontal (X)", "Sensibilité horizontale (X)",
+    "Horizontale Empfindlichkeit (X)", "Sensibilidade horizontal (X)", "Czułość pozioma (X)",
+    "Yatay hassasiyet (X)", "水平灵敏度（X）", "水平感度 (X)", "가로 감도 (X)"}},
+{MkSensY, {
+    "Vertical sensitivity (Y)", "Чувствительность по вертикали (Y)", "Sensibilità verticale (Y)",
+    "Sensibilidad vertical (Y)", "Sensibilité verticale (Y)", "Vertikale Empfindlichkeit (Y)",
+    "Sensibilidade vertical (Y)", "Czułość pionowa (Y)", "Dikey hassasiyet (Y)",
+    "垂直灵敏度（Y）", "垂直感度 (Y)", "세로 감도 (Y)"}},
+{MkInvertX, {
+    "Invert horizontal look (X)", "Инвертировать обзор по горизонтали (X)",
+    "Inverti visuale orizzontale (X)", "Invertir cámara horizontal (X)",
+    "Inverser la caméra horizontale (X)", "Horizontale Kamera umkehren (X)",
+    "Inverter câmera horizontal (X)", "Odwróć kamerę w poziomie (X)",
+    "Yatay bakışı ters çevir (X)", "反转水平视角（X）", "水平視点を反転 (X)", "가로 시점 반전 (X)"}},
+{MkInvertY, {
+    "Invert vertical look (Y)", "Инвертировать обзор по вертикали (Y)",
+    "Inverti visuale verticale (Y)", "Invertir cámara vertical (Y)",
+    "Inverser la caméra verticale (Y)", "Vertikale Kamera umkehren (Y)",
+    "Inverter câmera vertical (Y)", "Odwróć kamerę w pionie (Y)", "Dikey bakışı ters çevir (Y)",
+    "反转垂直视角（Y）", "垂直視点を反転 (Y)", "세로 시점 반전 (Y)"}},
+{MkDeadzone, {
+    "Mouse dead zone", "Мёртвая зона мыши", "Zona morta del mouse", "Zona muerta del ratón",
+    "Zone morte de la souris", "Maus-Totzone", "Zona morta do mouse", "Martwa strefa myszy",
+    "Fare ölü bölgesi", "鼠标死区", "マウスのデッドゾーン", "마우스 데드존"}},
+{MkSmoothing, {
+    "Mouse movement smoothing", "Сглаживание движений мыши",
+    "Smorzamento del movimento del mouse", "Suavizado del movimiento del ratón",
+    "Lissage des mouvements de la souris", "Glättung der Mausbewegung",
+    "Suavização do movimento do mouse", "Wygładzanie ruchu myszy", "Fare hareketi yumuşatma",
+    "鼠标移动平滑", "マウス移動のスムージング", "마우스 움직임 스무딩"}},
 };
 // clang-format on
 

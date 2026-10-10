@@ -22,7 +22,10 @@ enum Str : int {
     LiveHint, SecEffects, LodMax, LodGame, LodLower, LodMin, ModelLod, EffChromatic, EffDof,
     EffMotionBlur, EffSsao, EffGameAa, EffDynamicShadows, EffSsr, EffSkipIntro, EffDebugCamera,
     EffDebugMenu, EffectsHint, DebugHint, RestartNeeded, ApplyRestart, SecOther, ShowFps,
-    Language, Close, SavedIn, FpsCounter, NamePrompt, StrCount
+    Language, Close, SavedIn, FpsCounter, NamePrompt, ShowHud, HudHint, HudQuadTopLeft,
+    HudQuadTopRight, HudQuadBottomLeft, HudQuadBottomRight, HudPosition, HudOpacity, HudScale,
+    SecMk, MkEnable, MkHint, MkSensX, MkSensY, MkInvertX, MkInvertY, MkDeadzone, MkSmoothing,
+    StrCount
 };
 
 /// The string in the current language.
