@@ -32,3 +32,6 @@ test_th.*
 .vscode/
 .idea/
 push_to_github.bat
+/modules/game/*
+!/modules/game/.gitkeep
+/modules/dlss-sdk/

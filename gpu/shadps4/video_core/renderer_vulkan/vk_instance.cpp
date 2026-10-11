@@ -11,6 +11,7 @@
 #include "imgui/renderer/imgui_core.h"
 #include "sdl_window.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
+#include "video_core/renderer_vulkan/vk_dlss.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_platform.h"
 
@@ -252,7 +253,7 @@ bool Instance::CreateDevice() {
         return false;
     }
 
-    boost::container::static_vector<const char*, 32> enabled_extensions;
+    boost::container::static_vector<const char*, 64> enabled_extensions;
     const auto add_extension = [&](std::string_view extension) -> bool {
         const auto result =
             std::find_if(available_extensions.begin(), available_extensions.end(),
@@ -388,6 +389,18 @@ bool Instance::CreateDevice() {
     }
     const bool calibrated_timestamps =
         TRACY_GPU_ENABLED ? add_extension(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME) : false;
+    // bbport: NGX's device extensions for DLSS (vk_dlss.h); all of them or DLSS stays off.
+    const auto dlss_extensions = Dlss::DeviceExtensions();
+    dlss_extensions_enabled = !dlss_extensions.empty();
+    for (const char* extension : dlss_extensions) {
+        const bool enabled = std::any_of(enabled_extensions.begin(), enabled_extensions.end(),
+                                         [extension](const char* e) {
+                                             return std::string_view{e} == extension;
+                                         });
+        if (!enabled && !add_extension(extension)) {
+            dlss_extensions_enabled = false;
+        }
+    }
 
     const auto family_properties = physical_device.getQueueFamilyProperties();
     if (family_properties.empty()) {

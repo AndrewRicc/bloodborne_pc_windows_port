@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Saved FSR 4 choices must be safe before the first rendered frame on older GPUs.
 #include <cassert>
+#include <chrono>
 #include <cstdio>
+#include <filesystem>
 #include <cstdlib>
 #include <initializer_list>
 #include <unistd.h>
@@ -47,6 +49,7 @@ int main() {
     assert(RenderPreset() == NativeAA && !ResolutionNeedsRestart());
     s.upscaler = UpscalerFsr3;
     assert(RenderPreset() == Performance);
+    for (bool dlss : {false, true}) {
     for (bool fsr4 : {false, true}) {
         for (bool fsr411 : {false, true}) {
             for (int requested = 0; requested < UpscalerCount; ++requested) {
@@ -58,21 +61,60 @@ int main() {
                 s.fsr4_problem = nullptr;
                 Load();
                 assert(s.upscaler == requested);
-                ConfigureUpscalerSupport(fsr4, fsr411);
-                const bool unsupported = (requested == UpscalerFsr4 && !fsr4) ||
+                ConfigureUpscalerSupport(fsr4, fsr411, dlss);
+                const bool unsupported_fsr4 = (requested == UpscalerFsr4 && !fsr4) ||
                     (requested == UpscalerFsr411 && !(fsr4 && fsr411));
+                const bool unsupported = unsupported_fsr4 || (requested == UpscalerDlss && !dlss);
                 assert(s.upscaler == (unsupported ? UpscalerFsr3 : requested));
                 assert(s.fsr4_supported == fsr4);
                 assert(s.fsr411_supported == (fsr4 && fsr411));
-                assert(bool(s.fsr4_problem.load()) == unsupported);
+                assert(s.dlss_supported == dlss);
+                assert(bool(s.fsr4_problem.load()) == unsupported_fsr4);
                 assert(s.preset == Performance && s.output_res == 2);
                 // Startup patch settings still describe the already applied guest patches.
                 assert(s.startup_upscaler == requested);
-                ConfigureUpscalerSupport(fsr4, fsr411);
+                ConfigureUpscalerSupport(fsr4, fsr411, dlss);
                 assert(s.upscaler == (unsupported ? UpscalerFsr3 : requested));
             }
         }
     }
+    }
+    // Reload() (polled while the game runs) keeps menu changes that are not saved yet and
+    // applies a file changed from outside (the launcher).
+    ConfigureUpscalerSupport(true, true, true);
+    s.upscaler = UpscalerFsr3;
+    s.preset = Quality;
+    Save();
+    s.preset = Balanced; // changed in the open menu, saved when it closes
+    s.sharpness = 1.25f;
+    Reload();
+    assert(s.preset == Balanced && s.sharpness == 1.25f);
+    {
+        FILE* config = std::fopen(path, "w");
+        assert(config);
+        std::fprintf(config, "upscaler=dlss\npreset=3\n");
+        std::fclose(config);
+        // Coarse file clocks: make sure the time differs from the one Save() left.
+        std::filesystem::last_write_time(
+            path, std::filesystem::last_write_time(path) + std::chrono::seconds(2));
+    }
+    Reload();
+    assert(s.upscaler == UpscalerDlss && s.preset == Performance);
+    s.preset = Quality;
+    Reload(); // unchanged file: nothing is read again
+    assert(s.preset == Quality);
+    ConfigureUpscalerSupport(true, true, false);
+    {
+        FILE* config = std::fopen(path, "w");
+        assert(config);
+        std::fprintf(config, "upscaler=dlss\n");
+        std::fclose(config);
+        std::filesystem::last_write_time(
+            path, std::filesystem::last_write_time(path) + std::chrono::seconds(4));
+    }
+    Reload(); // an external edit naming an unsupported upscaler
+    assert(s.upscaler == UpscalerFsr3);
+
     s.startup_preset = Quality;
     s.startup_upscaler = UpscalerFsr3;
     s.upscaler = UpscalerFsr3;

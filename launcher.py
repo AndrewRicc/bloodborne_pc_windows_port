@@ -18,7 +18,9 @@ RUN_BAT = APP_DIR / "run.bat"
 LOG_FILE = APP_DIR / "launcher.log"
 SETTINGS_FILE = APP_DIR / "launcher_settings.json"
 PATCHES_XML = APP_DIR / "patches" / "Bloodborne.xml"
-DEFAULT_GAME = Path(os.environ.get("BB_GAME_DIR", "../CUSA03173"))
+MODULES_GAME = Path("modules/game/CUSA03173")
+DEFAULT_GAME = Path(os.environ.get("BB_GAME_DIR") or
+                    (MODULES_GAME if (MODULES_GAME / "eboot.bin").exists() else "../CUSA03173"))
 
 FPS_CHOICES = ["uncap", "60", "90", "30"]
 RES_CHOICES = ["1920x1080 (Native)", "1280x720", "2560x1440", "3840x2160"]

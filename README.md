@@ -6,6 +6,9 @@
 [![Stars](https://img.shields.io/github/stars/Mrsuss60/bloodborne_pc_windows_port?style=for-the-badge&logo=github&logoColor=white&labelColor=1a0f0f&color=c9a227&label=STARS)](https://github.com/Mrsuss60/bloodborne_pc_windows_port/stargazers)
 [![Last commit](https://img.shields.io/github/last-commit/Mrsuss60/bloodborne_pc_windows_port?style=for-the-badge&logo=git&logoColor=white&labelColor=1a0f0f&color=6b6b6b&label=LAST%20COMMIT)](https://github.com/Mrsuss60/bloodborne_pc_windows_port/commits)
 #
+
+> **DLSS fork:** this branch adds NVIDIA DLSS and a multilingual in-game menu. Setup instructions (Italian): [GUIDA.md](GUIDA.md). Run `setup.bat` to check requirements, install what is missing and build.
+
 `bloodborne_pc_windows_port` is a native 64-bit Windows port of the PlayStation 4 executable of *Bloodborne* (CUSA03173, version 1.09). 
 
 This project is a Windows adaptation of the original Linux port ([bbport](https://github.com/deadinside28/bloodborne_pc) by [deadinside28](https://github.com/deadinside28)). It replaces the Linux-specific kernel, memory mapping, and POSIX threading implementation with a native Win32 runtime, allowing the game to run directly on Windows with Vulkan.

@@ -58,6 +58,7 @@ shift
 goto arg_loop
 :arg_done
 
+if "%BB_GAME_DIR%"=="" if exist "modules\game\CUSA03173\eboot.bin" set "BB_GAME_DIR=modules\game\CUSA03173"
 if "%BB_GAME_DIR%"=="" set "BB_GAME_DIR=..\CUSA03173"
 set "game=%BB_GAME_DIR%"
 REM Strip trailing backslash if present
