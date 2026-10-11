@@ -144,9 +144,28 @@ ancora stata verificata a fondo.
 | `cannot open output file ... bbport.exe` | Il gioco è aperto: chiudilo e rilancia `setup.bat`. |
 | Python installato ma "non ancora visibile" | Chiudi PowerShell, riaprilo e rilancia `setup.bat`. |
 | DLSS grigio nel menu, "non supportato dalla GPU" | Serve una RTX con driver recente. Controlla che in `out` ci siano `bbdlss.dll` e `nvngx_dlss.dll`; se mancano rilancia `setup.bat`. |
+| "FSR 4 (INT8)" dà errore `missing fsr4_shaders/...` | Mancano gli shader di FSR 4: rilancia `setup.bat`, che li scarica (circa 45 MB). |
+| "FSR 4.1.1 (INT8)" grigio, "non supportato dalla GPU" | Su Windows è normale, anche con una GPU AMD recente: vedi la nota sugli upscaler qui sotto. |
 | Scritta arancione "DLSS non disponibile: ..." | Il gioco è passato da solo a FSR 3.1; il testo dopo i due punti dice il motivo. |
 | `No eboot.bin in ...` | Il gioco non è in `modules\game\CUSA03173`: copialo lì o passa il percorso a `run.bat`. |
 | Gioco lentissimo | Sta usando la grafica integrata: in Impostazioni > Sistema > Schermo > Grafica aggiungi `out\bbport.exe` e scegli "Prestazioni elevate". |
+
+## Quali upscaler funzionano su Windows
+
+| Upscaler | Cosa serve |
+|---|---|
+| FSR 3.1, TAA | Niente: funzionano su ogni GPU. |
+| FSR 4 (INT8) | Gli shader in `fsr4_shaders` (li scarica `setup.bat`) e una GPU con le funzioni Vulkan richieste (interi a 8 bit, prodotto scalare intero, derivate nei compute shader). Funziona su AMD, NVIDIA e Intel recenti. |
+| FSR 4.1.1 (INT8) | L'estensione Vulkan `VK_VALVE_shader_mixed_float_dot_product` nel driver, più un set di file (`fsr4_411`) che va generato dalla DLL di AMD con strumenti che girano solo su Linux. In pratica oggi su Windows non è utilizzabile. |
+| DLSS | Una NVIDIA RTX. |
+
+Per sapere se il driver espone l'estensione di FSR 4.1.1:
+
+```powershell
+vulkaninfo | Select-String mixed_float_dot_product
+```
+
+Se non stampa nulla, il driver non la supporta e la voce resta grigia.
 
 ## Limiti noti dello script di setup
 

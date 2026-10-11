@@ -400,8 +400,10 @@ void Menu() {
             }
             ImGui::EndDisabled();
             if (!supported) {
+                // DLSS: the bridge's own reason (no NVIDIA GPU, missing DLL) beats the generic text.
+                const char* reason = i == BbSettings::UpscalerDlss ? s.dlss_problem.load() : nullptr;
                 ImGui::SameLine();
-                ImGui::TextDisabled("%s", T(NotSupported));
+                ImGui::TextDisabled("%s", reason ? reason : T(NotSupported));
             }
         }
         for (const char* name : later) {
@@ -421,7 +423,7 @@ void Menu() {
         ImGui::PopTextWrapPos();
     }
     if (const char* problem = s.dlss_problem.load();
-        problem && (s.upscaler == BbSettings::UpscalerDlss || !s.dlss_supported)) {
+        problem && s.upscaler == BbSettings::UpscalerDlss) {
         ImGui::PushTextWrapPos();
         ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.3f, 1.0f), T(DlssUnavailable), problem);
         ImGui::PopTextWrapPos();

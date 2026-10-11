@@ -168,6 +168,22 @@ if ($dlss) {
     }
 }
 
+Titolo 'FSR 4'
+# Gli shader e i pesi del modello FSR 4 (v07, INT8) non stanno nel repository: li scarica lo script
+# del port, tools/fetch_fsr4_assets.sh, che poi ne corregge e velocizza alcuni in fsr4_shaders\opt.
+# Senza, nel menu "FSR 4 (INT8)" fallisce con "missing fsr4_shaders/...". Vale per ogni GPU.
+if ((Test-Path 'fsr4_shaders\rcas.spv') -and (Get-ChildItem 'fsr4_shaders\opt\*.spv' -ErrorAction SilentlyContinue)) {
+    Ok 'shader di FSR 4 gia'' presenti in fsr4_shaders'
+}
+elseif ($SoloControllo) { Avviso 'shader di FSR 4 assenti: FSR 4 (INT8) non funzionera'' finche'' non lanci setup.bat' }
+elseif (-not (Test-Path "$Msys\mingw64\bin\spirv-cross.exe")) { Avviso 'spirv-cross assente: salto gli shader di FSR 4' }
+else {
+    Faccio 'shader di FSR 4 (circa 45 MB, da github.com/FireBurn/Q2RTX) in fsr4_shaders'
+    # Con Git per Windows gli script .sh possono avere fine riga CRLF, che bash non accetta.
+    $comando = "sed -i 's/\r`$//' tools/fetch_fsr4_assets.sh tools/fsr4_optimize.sh && bash tools/fetch_fsr4_assets.sh"
+    if ((Bash $comando) -ne 0) { Avviso 'download o preparazione degli shader di FSR 4 falliti: FSR 4 (INT8) non sara'' disponibile, FSR 3.1 si''. Rilancia setup.bat per riprovare' }
+}
+
 Titolo 'Gioco'
 $gioco = Join-Path $repo 'modules\game\CUSA03173'
 if (Test-Path "$gioco\eboot.bin") { Ok 'gioco in modules\game\CUSA03173' }
