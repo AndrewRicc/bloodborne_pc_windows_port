@@ -42,7 +42,7 @@ Poi chiudi e riapri PowerShell. Tutto il resto lo installa `setup.bat`.
 Apri PowerShell nella cartella dove vuoi tenerlo e lancia:
 
 ```powershell
-git clone -c core.longpaths=true --branch dlss-i18n https://github.com/AndrewRicc/bloodborne_pc_windows_port.git bloodborne
+git clone -c core.longpaths=true https://github.com/AndrewRicc/bloodborne_pc_windows_port.git bloodborne
 ```
 
 ```powershell
