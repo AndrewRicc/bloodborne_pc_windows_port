@@ -1,2 +1,4 @@
-# Shell scripts must keep LF line endings even when Git for Windows checks out with CRLF.
+# Shell and Perl scripts must keep LF line endings even when Git for Windows checks out with CRLF.
 *.sh text eol=lf
+*.pl text eol=lf
+*.pm text eol=lf

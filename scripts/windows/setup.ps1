@@ -1,215 +1,216 @@
-# Setup completo del port di Bloodborne su Windows: controlla ogni requisito, installa solo quello
-# che manca, scarica i componenti e compila. Si puo' rilanciare quante volte si vuole: i passi
-# gia' fatti vengono saltati.
-# Uso (dalla cartella del repository):  setup.bat [-SenzaDlss] [-SoloControllo]
-#   -SenzaDlss      salta Visual Studio Build Tools e l'SDK di NVIDIA (circa 9 GB in meno)
-#   -SoloControllo  dice cosa manca senza installare ne' compilare nulla
+# Full setup of the Bloodborne port on Windows: checks every requirement, installs only what is
+# missing, downloads the components and builds. It can be run as many times as needed: the steps
+# already done are skipped.
+# Usage (from the repository folder):  setup.bat [-NoDlss] [-CheckOnly]
+#   -NoDlss     skips Visual Studio Build Tools and the NVIDIA SDK (about 9 GB less)
+#   -CheckOnly  reports what is missing without installing or building anything
 param(
-    [switch]$SenzaDlss,
-    [switch]$SoloControllo,
+    [switch]$NoDlss,
+    [switch]$CheckOnly,
     [string]$Msys = 'C:\msys64'
 )
-# 'Continue': con 'Stop' PowerShell 5.1 tratta come errore fatale qualsiasi riga scritta su stderr da
-# un programma esterno (gli avvisi di CMake, i messaggi di git). Gli esiti sono controllati a mano.
+# 'Continue': with 'Stop', PowerShell 5.1 treats any line an external program writes to stderr
+# (CMake warnings, git messages) as a fatal error. Results are checked by hand.
 $ErrorActionPreference = 'Continue'
 $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Set-Location $repo
 
-function Titolo($t)  { Write-Host ''; Write-Host "== $t" -ForegroundColor Cyan }
-function Ok($t)      { Write-Host "[OK]       $t" -ForegroundColor Green }
-function Faccio($t)  { Write-Host "[INSTALLO] $t" -ForegroundColor Yellow }
-function Avviso($t)  { Write-Host "[AVVISO]   $t" -ForegroundColor Yellow }
-function Errore($t)  { Write-Host "[ERRORE]   $t" -ForegroundColor Red; exit 1 }
-function AggiornaPath {
+function Section($t) { Write-Host ''; Write-Host "== $t" -ForegroundColor Cyan }
+function Ok($t)      { Write-Host "[OK]      $t" -ForegroundColor Green }
+function Doing($t)   { Write-Host "[INSTALL] $t" -ForegroundColor Yellow }
+function Warn($t)    { Write-Host "[WARNING] $t" -ForegroundColor Yellow }
+function Missing($t) { Write-Host "[MISSING] $t" -ForegroundColor Red; $script:missing++ }
+function Fail($t)    { Write-Host "[ERROR]   $t" -ForegroundColor Red; exit 1 }
+function RefreshPath {
     $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
 }
-# Installa un pacchetto con winget; in modalita' -SoloControllo lo segnala soltanto.
-function Installa($nome, $id, $extra) {
-    if ($SoloControllo) { Write-Host "[MANCA]    $nome" -ForegroundColor Red; $script:mancanti++; return $false }
+# Installs a package with winget; with -CheckOnly it only reports it.
+function Install($name, $id, $extra) {
+    if ($CheckOnly) { Missing $name; return $false }
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Errore "manca $nome e non c'e' winget per installarlo: installa 'Programma di installazione app' dal Microsoft Store"
+        Fail "$name is missing and winget is not available to install it: install 'App Installer' from the Microsoft Store"
     }
-    Faccio $nome
-    $argomenti = @('install', '--id', $id, '-e') + $extra
-    & winget @argomenti | Out-Host
-    # -1978335189: winget trova il pacchetto gia' installato e senza aggiornamenti. Non e' un errore.
-    if ($LASTEXITCODE -eq -1978335189) { Avviso "$nome risulta gia' installato secondo winget" }
-    elseif ($LASTEXITCODE -ne 0) { Errore "installazione di $nome fallita (winget, codice $LASTEXITCODE)" }
-    AggiornaPath
+    Doing $name
+    $arguments = @('install', '--id', $id, '-e') + $extra
+    & winget @arguments | Out-Host
+    # -1978335189: winget finds the package already installed with no upgrade. Not an error.
+    if ($LASTEXITCODE -eq -1978335189) { Warn "$name is already installed according to winget" }
+    elseif ($LASTEXITCODE -ne 0) { Fail "installing $name failed (winget, code $LASTEXITCODE)" }
+    RefreshPath
     return $true
 }
-function Bash($comando) {
+function Bash($command) {
     $env:CHERE_INVOKING = '1'; $env:MSYSTEM = 'MINGW64'; $env:MSYS2_PATH_TYPE = ''
-    # Out-Host: l'output va a schermo e non nel valore di ritorno della funzione.
-    & "$Msys\usr\bin\bash.exe" -lc $comando | Out-Host
+    # Out-Host: the output goes to the screen and not into the function's return value.
+    & "$Msys\usr\bin\bash.exe" -lc $command | Out-Host
     return $LASTEXITCODE
 }
-function TrovaPython {
-    # Python puo' essere installato senza essere nel PATH: oltre al PATH si guardano il launcher
-    # "py" e le cartelle di installazione abituali.
-    $candidati = @(& where.exe python 2>$null)
-    if (Get-Command py -ErrorAction SilentlyContinue) { $candidati += @(& py -3 -c "import sys;print(sys.executable)" 2>$null) }
-    foreach ($modello in "$env:ProgramFiles\Python3*\python.exe", "$env:LocalAppData\Programs\Python\Python3*\python.exe",
+function FindPython {
+    # Python can be installed without being on PATH: besides PATH, look at the "py" launcher and
+    # the usual installation folders.
+    $candidates = @(& where.exe python 2>$null)
+    if (Get-Command py -ErrorAction SilentlyContinue) { $candidates += @(& py -3 -c "import sys;print(sys.executable)" 2>$null) }
+    foreach ($pattern in "$env:ProgramFiles\Python3*\python.exe", "$env:LocalAppData\Programs\Python\Python3*\python.exe",
                          "$env:LocalAppData\Python\*\python.exe") {
-        $candidati += @(Get-ChildItem $modello -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | ForEach-Object FullName)
+        $candidates += @(Get-ChildItem $pattern -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | ForEach-Object FullName)
     }
-    foreach ($p in $candidati) {
+    foreach ($p in $candidates) {
         if (-not $p -or $p -match 'WindowsApps' -or -not (Test-Path $p)) { continue }
         $v = & $p -c "import sys,tkinter;print('%d.%d' % sys.version_info[:2])" 2>$null
         if ($v -and [version]$v -ge [version]'3.10') { return $p }
     }
     return $null
 }
-function LibrerieMancanti {
-    $file = 'bin\gcc.exe', 'bin\cmake.exe', 'bin\ninja.exe', 'bin\glslang.exe', 'bin\pkgconf.exe',
-            'include\SDL3\SDL.h', 'include\vulkan\vulkan.h', 'include\vma\vk_mem_alloc.h',
-            'include\libavcodec\avcodec.h', 'include\boost\version.hpp', 'include\fmt\format.h',
-            'include\Zydis\Zydis.h', 'include\xxhash.h', 'include\tsl\robin_map.h',
-            'include\magic_enum\magic_enum.hpp', 'include\xbyak\xbyak.h', 'include\miniz.h', 'lib\libminiz.a'
-    return @($file | Where-Object { -not (Test-Path "$Msys\mingw64\$_") })
+function MissingLibraries {
+    $files = 'bin\gcc.exe', 'bin\cmake.exe', 'bin\ninja.exe', 'bin\glslang.exe', 'bin\pkgconf.exe',
+             'include\SDL3\SDL.h', 'include\vulkan\vulkan.h', 'include\vma\vk_mem_alloc.h',
+             'include\libavcodec\avcodec.h', 'include\boost\version.hpp', 'include\fmt\format.h',
+             'include\Zydis\Zydis.h', 'include\xxhash.h', 'include\tsl\robin_map.h',
+             'include\magic_enum\magic_enum.hpp', 'include\xbyak\xbyak.h', 'include\miniz.h', 'lib\libminiz.a'
+    return @($files | Where-Object { -not (Test-Path "$Msys\mingw64\$_") })
 }
-$script:mancanti = 0
+$script:missing = 0
 
-Titolo 'Sistema'
+Section 'System'
 $os = Get-CimInstance Win32_OperatingSystem
-if (-not ([Environment]::Is64BitOperatingSystem -and [version]$os.Version -ge [version]'10.0')) { Errore 'serve Windows 10 o 11 a 64 bit' }
-Ok "Windows a 64 bit ($($os.Caption))"
+if (-not ([Environment]::Is64BitOperatingSystem -and [version]$os.Version -ge [version]'10.0')) { Fail '64-bit Windows 10 or 11 is required' }
+Ok "64-bit Windows ($($os.Caption))"
 Add-Type -Namespace Bb -Name Cpu -MemberDefinition '[DllImport("kernel32.dll")] public static extern bool IsProcessorFeaturePresent(uint feature);'
-if (-not [Bb.Cpu]::IsProcessorFeaturePresent(40)) { Errore 'la CPU non supporta AVX2: il gioco non puo'' funzionare' }
-Ok 'CPU con AVX2'
+if (-not [Bb.Cpu]::IsProcessorFeaturePresent(40)) { Fail 'the CPU does not support AVX2: the game cannot run' }
+Ok 'CPU with AVX2'
 $rtx = [bool](Get-CimInstance Win32_VideoController | Where-Object { $_.Name -match 'RTX' })
-$dlss = $rtx -and -not $SenzaDlss
-if ($dlss) { Ok 'GPU NVIDIA RTX: il DLSS verra'' compilato' }
-elseif ($SenzaDlss) { Avviso 'DLSS escluso su richiesta (-SenzaDlss): resta FSR' }
-else { Avviso 'nessuna GPU NVIDIA RTX: salto la parte DLSS, resta FSR' }
+$dlss = $rtx -and -not $NoDlss
+if ($dlss) { Ok 'NVIDIA RTX GPU: DLSS will be built' }
+elseif ($NoDlss) { Warn 'DLSS excluded on request (-NoDlss): FSR remains' }
+else { Warn 'no NVIDIA RTX GPU: skipping the DLSS part, FSR remains' }
 
-Titolo 'Programmi'
+Section 'Programs'
 if (Get-Command git -ErrorAction SilentlyContinue) { Ok (& git --version) }
-else { [void](Installa 'Git' 'Git.Git' @()) }
+else { [void](Install 'Git' 'Git.Git' @()) }
 
-$py = TrovaPython
-if ($py) { Ok "Python con tkinter ($py)" }
-elseif (Installa 'Python 3.13' 'Python.Python.3.13' @()) {
-    $py = TrovaPython
-    if (-not $py) { Errore 'Python risulta installato ma non trovo un python.exe 3.10+ con tkinter: chiudi questa finestra, riaprila e rilancia setup.bat; se si ripete, reinstalla Python da python.org con le opzioni predefinite' }
-    Ok "Python con tkinter ($py)"
+$py = FindPython
+if ($py) { Ok "Python with tkinter ($py)" }
+elseif (Install 'Python 3.13' 'Python.Python.3.13' @()) {
+    $py = FindPython
+    if (-not $py) { Fail 'Python is installed but I cannot find a python.exe 3.10+ with tkinter: close this window, reopen it and run setup.bat again; if it happens again, reinstall Python from python.org with the default options' }
+    Ok "Python with tkinter ($py)"
 }
 
-$msysNuovo = $false
+$msysNew = $false
 if (Test-Path "$Msys\usr\bin\bash.exe") { Ok "MSYS2 in $Msys" }
-else { $msysNuovo = Installa 'MSYS2' 'MSYS2.MSYS2' @() }
+else { $msysNew = Install 'MSYS2' 'MSYS2.MSYS2' @() }
 
 if ($dlss) {
     $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
     $vs = if (Test-Path $vswhere) { & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath } else { $null }
-    if ($vs) { Ok "Visual Studio con strumenti C++ ($vs)" }
+    if ($vs) { Ok "Visual Studio with C++ tools ($vs)" }
     else {
-        [void](Installa 'Visual Studio Build Tools con C++ (circa 7 GB)' 'Microsoft.VisualStudio.2022.BuildTools' `
+        [void](Install 'Visual Studio Build Tools with C++ (about 7 GB)' 'Microsoft.VisualStudio.2022.BuildTools' `
             @('--override', '--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'))
     }
 }
 
-Titolo 'Librerie MSYS2'
+Section 'MSYS2 libraries'
 if (Test-Path "$Msys\usr\bin\bash.exe") {
-    if ($msysNuovo) {
-        Faccio 'aggiornamento di MSYS2 (due passate)'
+    if ($msysNew) {
+        Doing 'MSYS2 update (two passes)'
         [void](Bash 'pacman -Syu --noconfirm'); [void](Bash 'pacman -Syu --noconfirm')
     }
-    $manca = LibrerieMancanti
-    if (-not $manca) { Ok 'compilatore e librerie gia'' presenti' }
-    elseif ($SoloControllo) { Write-Host "[MANCA]    librerie MSYS2: $($manca -join ', ')" -ForegroundColor Red; $script:mancanti++ }
+    $lacking = MissingLibraries
+    if (-not $lacking) { Ok 'compiler and libraries already present' }
+    elseif ($CheckOnly) { Missing "MSYS2 libraries: $($lacking -join ', ')" }
     else {
-        Faccio "librerie MSYS2 (mancano: $($manca -join ', '))"
-        # Il server di MSYS2 a volte risponde 429 (occupato): un secondo tentativo di solito basta.
+        Doing "MSYS2 libraries (missing: $($lacking -join ', '))"
+        # The MSYS2 server sometimes answers 429 (busy): a second attempt is usually enough.
         if ((Bash 'bash scripts/windows/install_deps.sh') -ne 0) {
-            Avviso 'primo tentativo fallito, riprovo tra 20 secondi'
+            Warn 'first attempt failed, retrying in 20 seconds'
             Start-Sleep -Seconds 20
-            if ((Bash 'bash scripts/windows/install_deps.sh') -ne 0) { Errore 'installazione delle librerie fallita: rilancia setup.bat tra qualche minuto' }
+            if ((Bash 'bash scripts/windows/install_deps.sh') -ne 0) { Fail 'installing the libraries failed: run setup.bat again in a few minutes' }
         }
-        if (LibrerieMancanti) { Errore "librerie ancora mancanti: $((LibrerieMancanti) -join ', ')" }
+        if (MissingLibraries) { Fail "libraries still missing: $((MissingLibraries) -join ', ')" }
     }
 }
 
-Titolo 'Componenti del codice'
-$haGit = [bool](Get-Command git -ErrorAction SilentlyContinue)
+Section 'Source components'
+$hasGit = [bool](Get-Command git -ErrorAction SilentlyContinue)
 if (-not (Test-Path (Join-Path $repo '.git'))) {
-    Errore 'questa cartella non e'' un clone git (scaricata come ZIP?): scarica il progetto con "git clone", vedi GUIDA.md'
+    Fail 'this folder is not a git clone (downloaded as a ZIP?): download the project with "git clone", see GUIDE.md'
 }
-$sotto = 'gpu\third_party\fsr-vulkan'
-$sottoPronti = (Test-Path "$sotto\.git") -and (Test-Path 'third_party\LibAtrac9\C\src')
-if ($sottoPronti) { Ok 'sottomoduli (FSR, ImGui, LibAtrac9) gia'' scaricati' }
-elseif ($SoloControllo -or -not $haGit) { Write-Host '[MANCA]    sottomoduli (FSR, ImGui, LibAtrac9)' -ForegroundColor Red; $script:mancanti++ }
+$sub = 'gpu\third_party\fsr-vulkan'
+$subReady = (Test-Path "$sub\.git") -and (Test-Path 'third_party\LibAtrac9\C\src')
+if ($subReady) { Ok 'submodules (FSR, ImGui, LibAtrac9) already downloaded' }
+elseif ($CheckOnly -or -not $hasGit) { Missing 'submodules (FSR, ImGui, LibAtrac9)' }
 else {
-    Faccio 'sottomoduli (FSR, ImGui, LibAtrac9)'
+    Doing 'submodules (FSR, ImGui, LibAtrac9)'
     & git submodule update --init --recursive
-    if ($LASTEXITCODE -ne 0) { Errore 'download dei sottomoduli fallito' }
+    if ($LASTEXITCODE -ne 0) { Fail 'downloading the submodules failed' }
 }
-if ($haGit -and (Test-Path "$sotto\.git")) {
+if ($hasGit -and (Test-Path "$sub\.git")) {
     $patch = '..\..\..\patches\fsr_vulkan_mingw.patch'
-    & git -C $sotto apply --reverse --check $patch 2>$null
-    if ($LASTEXITCODE -eq 0) { Ok 'correzione di FSR per MinGW gia'' applicata' }
-    elseif ($SoloControllo) { Write-Host '[MANCA]    correzione di FSR per MinGW' -ForegroundColor Red; $script:mancanti++ }
+    & git -C $sub apply --reverse --check $patch 2>$null
+    if ($LASTEXITCODE -eq 0) { Ok 'FSR fix for MinGW already applied' }
+    elseif ($CheckOnly) { Missing 'FSR fix for MinGW' }
     else {
-        Faccio 'correzione di FSR per MinGW'
-        & git -C $sotto apply $patch
-        if ($LASTEXITCODE -ne 0) { Errore 'la correzione di FSR non si applica' }
+        Doing 'FSR fix for MinGW'
+        & git -C $sub apply $patch
+        if ($LASTEXITCODE -ne 0) { Fail 'the FSR fix does not apply' }
     }
 }
 if ($dlss) {
     $sdk = Join-Path $repo 'modules\dlss-sdk'
-    $accanto = Join-Path (Split-Path $repo -Parent) 'dlss-sdk'
-    if (Test-Path "$sdk\include\nvsdk_ngx_vk.h") { Ok 'SDK DLSS in modules\dlss-sdk' }
-    elseif (Test-Path "$accanto\include\nvsdk_ngx_vk.h") { Ok "SDK DLSS in $accanto" }
-    elseif ($SoloControllo -or -not $haGit) { Write-Host '[MANCA]    SDK DLSS in modules\dlss-sdk' -ForegroundColor Red; $script:mancanti++ }
+    $sibling = Join-Path (Split-Path $repo -Parent) 'dlss-sdk'
+    if (Test-Path "$sdk\include\nvsdk_ngx_vk.h") { Ok 'DLSS SDK in modules\dlss-sdk' }
+    elseif (Test-Path "$sibling\include\nvsdk_ngx_vk.h") { Ok "DLSS SDK in $sibling" }
+    elseif ($CheckOnly -or -not $hasGit) { Missing 'DLSS SDK in modules\dlss-sdk' }
     else {
-        Faccio 'SDK DLSS di NVIDIA in modules\dlss-sdk (circa 1,6 GB)'
+        Doing 'NVIDIA DLSS SDK in modules\dlss-sdk (about 1.6 GB)'
         & git clone --depth 1 --branch v310.9.1 https://github.com/NVIDIA/DLSS.git $sdk
-        if ($LASTEXITCODE -ne 0) { Errore 'download dell''SDK DLSS fallito' }
+        if ($LASTEXITCODE -ne 0) { Fail 'downloading the DLSS SDK failed' }
     }
 }
 
-Titolo 'FSR 4'
-# Gli shader e i pesi del modello FSR 4 (v07, INT8) non stanno nel repository: li scarica lo script
-# del port, tools/fetch_fsr4_assets.sh, che poi ne corregge e velocizza alcuni in fsr4_shaders\opt.
-# Senza, nel menu "FSR 4 (INT8)" fallisce con "missing fsr4_shaders/...". Vale per ogni GPU.
+Section 'FSR 4'
+# The FSR 4 (v07, INT8) shaders and model weights are not in the repository: the port's own script,
+# tools/fetch_fsr4_assets.sh, downloads them and then fixes and speeds up some in fsr4_shaders\opt.
+# Without them "FSR 4 (INT8)" fails in the menu with "missing fsr4_shaders/...". Any GPU.
 if ((Test-Path 'fsr4_shaders\rcas.spv') -and (Get-ChildItem 'fsr4_shaders\opt\*.spv' -ErrorAction SilentlyContinue)) {
-    Ok 'shader di FSR 4 gia'' presenti in fsr4_shaders'
+    Ok 'FSR 4 shaders already present in fsr4_shaders'
 }
-elseif ($SoloControllo) { Avviso 'shader di FSR 4 assenti: FSR 4 (INT8) non funzionera'' finche'' non lanci setup.bat' }
-elseif (-not (Test-Path "$Msys\mingw64\bin\spirv-cross.exe")) { Avviso 'spirv-cross assente: salto gli shader di FSR 4' }
+elseif ($CheckOnly) { Warn 'FSR 4 shaders missing: FSR 4 (INT8) will not work until you run setup.bat' }
+elseif (-not (Test-Path "$Msys\mingw64\bin\spirv-cross.exe")) { Warn 'spirv-cross is missing: skipping the FSR 4 shaders' }
 else {
-    Faccio 'shader di FSR 4 (circa 45 MB, da github.com/FireBurn/Q2RTX) in fsr4_shaders'
-    # Con Git per Windows gli script .sh possono avere fine riga CRLF, che bash non accetta.
-    $comando = "sed -i 's/\r`$//' tools/fetch_fsr4_assets.sh tools/fsr4_optimize.sh && bash tools/fetch_fsr4_assets.sh"
-    if ((Bash $comando) -ne 0) { Avviso 'download o preparazione degli shader di FSR 4 falliti: FSR 4 (INT8) non sara'' disponibile, FSR 3.1 si''. Rilancia setup.bat per riprovare' }
+    Doing 'FSR 4 shaders (about 45 MB, from github.com/FireBurn/Q2RTX) in fsr4_shaders'
+    # With Git for Windows the scripts may have CRLF line endings, which bash and the Perl rewrites reject.
+    $command = "sed -i 's/\r`$//' tools/fetch_fsr4_assets.sh tools/fsr4_optimize.sh tools/*.pl tools/*.pm && bash tools/fetch_fsr4_assets.sh"
+    if ((Bash $command) -ne 0) { Warn 'downloading or preparing the FSR 4 shaders failed: FSR 4 (INT8) will not be available, FSR 3.1 will. Run setup.bat again to retry' }
 }
 
-Titolo 'Gioco'
-$gioco = Join-Path $repo 'modules\game\CUSA03173'
-if (Test-Path "$gioco\eboot.bin") { Ok 'gioco in modules\game\CUSA03173' }
-else { Avviso 'gioco non trovato in modules\game\CUSA03173: copialo li'', oppure scegli eboot.bin dal launcher' }
+Section 'Game'
+$game = Join-Path $repo 'modules\game\CUSA03173'
+if (Test-Path "$game\eboot.bin") { Ok 'game in modules\game\CUSA03173' }
+else { Warn 'game not found in modules\game\CUSA03173: copy it there, or pick eboot.bin in the launcher' }
 
-if ($SoloControllo) {
+if ($CheckOnly) {
     Write-Host ''
-    if ($script:mancanti) { Write-Host "Voci mancanti: $script:mancanti. Lancia setup.bat senza -SoloControllo per installarle." -ForegroundColor Red; exit 1 }
-    Write-Host 'Tutti i requisiti sono presenti.' -ForegroundColor Green
+    if ($script:missing) { Write-Host "Missing items: $script:missing. Run setup.bat without -CheckOnly to install them." -ForegroundColor Red; exit 1 }
+    Write-Host 'All requirements are present.' -ForegroundColor Green
     exit 0
 }
 
-Titolo 'Compilazione'
-if (Get-Process bbport -ErrorAction SilentlyContinue) { Errore 'il gioco e'' aperto: chiudilo e rilancia setup.bat' }
-Write-Host 'La prima volta servono 20-30 minuti.'
-# Lo script di build usa questo Python anche quando non e' nel PATH.
+Section 'Build'
+if (Get-Process bbport -ErrorAction SilentlyContinue) { Fail 'the game is running: close it and run setup.bat again' }
+Write-Host 'The first time takes 20-30 minutes.'
+# The build script uses this Python even when it is not on PATH.
 $env:PYTHON = $py -replace '\\', '/'
-if ((Bash 'bash scripts/windows/build_bbport.sh') -ne 0) { Errore 'compilazione del gioco fallita' }
+if ((Bash 'bash scripts/windows/build_bbport.sh') -ne 0) { Fail 'building the game failed' }
 if ($dlss) {
     & cmd /c 'gpu\dlss\build_bbdlss.bat'
-    if ($LASTEXITCODE -ne 0) { Errore 'compilazione della parte DLSS fallita' }
+    if ($LASTEXITCODE -ne 0) { Fail 'building the DLSS part failed' }
 }
-$attesi = @('out\bbport.exe')
-if ($dlss) { $attesi += 'out\bbdlss.dll', 'out\nvngx_dlss.dll' }
-foreach ($f in $attesi) { if (-not (Test-Path $f)) { Errore "manca $f dopo la compilazione" } }
+$expected = @('out\bbport.exe')
+if ($dlss) { $expected += 'out\bbdlss.dll', 'out\nvngx_dlss.dll' }
+foreach ($f in $expected) { if (-not (Test-Path $f)) { Fail "$f is missing after the build" } }
 
 Write-Host ''
-Write-Host 'Setup completato.' -ForegroundColor Green
-Write-Host 'Per giocare: doppio clic su launch_gui.bat (launcher), oppure run.bat.'
+Write-Host 'Setup complete.' -ForegroundColor Green
+Write-Host 'To play: double-click launch_gui.bat (launcher), or run.bat.'
