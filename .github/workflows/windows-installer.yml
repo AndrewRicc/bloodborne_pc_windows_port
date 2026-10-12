@@ -88,17 +88,33 @@ jobs:
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
+          # Explicit: in a fork gh could otherwise pick the parent repository.
+          GH_REPO: ${{ github.repository }}
         run: |
-          $setup = (Get-ChildItem dist\bbport-setup-*.exe | Select-Object -First 1).FullName
-          $notes = @"
-          Windows installer of the Bloodborne PC port with the multilingual menu.
-
-          It contains the port only: no game files. You need your own copy of Bloodborne (CUSA03173, version 1.09) dumped from your PS4, and Python 3.10 or newer.
-          FSR 3.1, FSR 4 and TAA are included. DLSS is not part of this installer: build the port from source (GUIDE.md) to get it.
-          "@
-          # "gh release view" writes to stderr when the release does not exist yet: not an error.
+          # gh writes to stderr when the release does not exist yet: not an error.
           $ErrorActionPreference = 'Continue'
-          gh release view $env:GITHUB_REF_NAME --json tagName | Out-Null
-          if ($LASTEXITCODE -eq 0) { gh release upload $env:GITHUB_REF_NAME $setup --clobber }
-          else { gh release create $env:GITHUB_REF_NAME $setup --title "Bloodborne PC Port $env:GITHUB_REF_NAME" --notes $notes --generate-notes }
-          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $tag = $env:GITHUB_REF_NAME
+          $setup = (Get-ChildItem dist\bbport-setup-*.exe | Select-Object -First 1).FullName
+          Write-Host "Repository: $env:GH_REPO   tag: $tag   file: $setup"
+          Set-Content -Path release_notes.md -Encoding UTF8 -Value @(
+            'Windows installer of the Bloodborne PC port with the multilingual menu.',
+            '',
+            'It contains the port only: no game files. You need your own copy of Bloodborne (CUSA03173, version 1.09) dumped from your PS4, and Python 3.10 or newer.',
+            '',
+            'FSR 3.1, FSR 4 and TAA are included. DLSS is not part of this installer: build the port from source (GUIDE.md) to get it.'
+          )
+          gh release view $tag --json tagName,isDraft
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host 'The release exists: replacing its installer'
+            gh release upload $tag $setup --clobber
+            if ($LASTEXITCODE -ne 0) { Write-Host '::error::uploading the installer failed'; exit 1 }
+            gh release edit $tag --draft=false
+          } else {
+            Write-Host 'Creating the release'
+            gh release create $tag $setup --title "Bloodborne PC Port $tag" --notes-file release_notes.md --verify-tag
+            if ($LASTEXITCODE -ne 0) { Write-Host '::error::creating the release failed'; exit 1 }
+          }
+          # The step is only green when the published release really holds the installer.
+          $assets = gh release view $tag --json isDraft,assets --jq '[.isDraft, (.assets | length)] | @tsv'
+          Write-Host "Published release (draft, files): $assets"
+          if ($LASTEXITCODE -ne 0 -or $assets -notmatch '^false\s+[1-9]') { Write-Host '::error::the release is missing, still a draft, or has no installer'; exit 1 }
