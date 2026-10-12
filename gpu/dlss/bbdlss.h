@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Copyright 2026 AndrewRicc and bbport contributors
+// SPDX-License-Identifier: MIT
 // bbport: DLSS Super Resolution bridge. NVIDIA's NGX SDK ships MSVC static libraries only, so the
 // NGX calls live in bbdlss.dll (built with MSVC, gpu/dlss/build_bbdlss.bat) behind this plain C
 // API; the MinGW renderer loads it at run time (vk_dlss.cpp). Without the DLL, DLSS is unavailable.

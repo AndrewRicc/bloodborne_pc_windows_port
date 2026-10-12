@@ -1,0 +1,104 @@
+# Builds the port on Windows, runs the tests, packs the installer and tests it.
+#   - every push to master and every pull request: build + tests + installer (kept as an artifact);
+#   - a tag "v<version>" (git tag v0.3.0 && git push origin v0.3.0): the same, then the installer is
+#     published as a GitHub release.
+# The installer never contains game files and, built here, never contains NVIDIA DLSS files.
+name: Windows installer
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: windows-installer-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Allow long paths in git
+        run: git config --global core.longpaths true
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Update MSYS2
+        # The runner image ships MSYS2 in C:\msys64. Two passes: the first one may only update
+        # the core packages.
+        # The first pass may end with an error code when it replaces
+        # the running core: the build step fails by itself if MSYS2 is really broken.
+        run: |
+          $ErrorActionPreference = 'Continue'
+          C:\msys64\usr\bin\bash.exe -lc "pacman -Syuu --noconfirm"
+          C:\msys64\usr\bin\bash.exe -lc "pacman -Syuu --noconfirm"
+          exit 0
+
+      - name: Build the port (setup.bat)
+        # The runner has no NVIDIA RTX card, so the DLSS part is skipped anyway; -NoDlss makes it
+        # explicit. -NoShortcut: no desktop on a runner.
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\setup.ps1 -NoDlss -NoShortcut
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Tests
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\run_tests.ps1
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Install Inno Setup
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup --no-progress -y }
+
+      - name: Build the installer
+        run: |
+          $arguments = @()
+          if ($env:GITHUB_REF_TYPE -eq 'tag') { $arguments = '-Version', ($env:GITHUB_REF_NAME -replace '^v', '') }
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\make_installer.ps1 @arguments
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Test the installer
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\test_installer.ps1
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bbport-setup
+          path: dist/bbport-setup-*.exe
+          if-no-files-found: error
+
+      - name: Publish the release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $setup = (Get-ChildItem dist\bbport-setup-*.exe | Select-Object -First 1).FullName
+          $notes = @"
+          Windows installer of the Bloodborne PC port with the multilingual menu.
+
+          It contains the port only: no game files. You need your own copy of Bloodborne (CUSA03173, version 1.09) dumped from your PS4, and Python 3.10 or newer.
+          FSR 3.1, FSR 4 and TAA are included. DLSS is not part of this installer: build the port from source (GUIDE.md) to get it.
+          "@
+          # "gh release view" writes to stderr when the release does not exist yet: not an error.
+          $ErrorActionPreference = 'Continue'
+          gh release view $env:GITHUB_REF_NAME --json tagName | Out-Null
+          if ($LASTEXITCODE -eq 0) { gh release upload $env:GITHUB_REF_NAME $setup --clobber }
+          else { gh release create $env:GITHUB_REF_NAME $setup --title "Bloodborne PC Port $env:GITHUB_REF_NAME" --notes $notes --generate-notes }
+          if ($LASTEXITCODE -ne 0) { exit 1 }

@@ -71,7 +71,10 @@ var
   CheckMemo: TNewMemo;
   CheckNote: TNewStaticText;
   RecheckButton, PythonButton: TNewButton;
-  GamePage: TInputDirWizardPage;
+  GamePage: TWizardPage;
+  GameEdit: TNewEdit;
+  GameBrowse: TNewButton;
+  GameText, GameLabel: TNewStaticText;
   CheckDone: Boolean;
   MissingCount: Integer;
   PythonMissing: Boolean;
@@ -166,6 +169,14 @@ begin
   StringChangeEx(Result, '"', '\"', True);
 end;
 
+procedure GameBrowseClick(Sender: TObject);
+var
+  Dir: String;
+begin
+  Dir := StripGamePath(GameEdit.Text);
+  if BrowseForFolder('Select your Bloodborne folder (the one with eboot.bin):', Dir, False) then GameEdit.Text := Dir;
+end;
+
 procedure InitializeWizard;
 begin
   CheckPage := CreateCustomPage(wpInfoBefore, 'System check',
@@ -192,16 +203,33 @@ begin
   PythonButton.OnClick := @PythonClick;
   PythonButton.Visible := False;
 
-  GamePage := CreateInputDirPage(wpSelectDir, 'Your copy of Bloodborne',
-    'Where is your game folder?',
+  // A custom page and not CreateInputDirPage: that one refuses an empty folder, and the game
+  // folder may be chosen later in the launcher.
+  GamePage := CreateCustomPage(wpSelectDir, 'Your copy of Bloodborne', 'Where is your game folder?');
+  GameText := TNewStaticText.Create(GamePage);
+  GameText.Parent := GamePage.Surface;
+  GameText.AutoSize := False;
+  GameText.WordWrap := True;
+  GameText.SetBounds(0, 0, GamePage.SurfaceWidth, ScaleY(96));
+  GameText.Caption :=
     'The port needs your own copy of Bloodborne (CUSA03173, version 1.09), dumped from your PS4: the folder ' +
     'that contains eboot.bin, dvdroot_ps4 and sce_sys. The game is not included and is not copied: the port ' +
     'reads it where it is.' + #13#10#13#10 +
-    'Pick the folder, then click Next. You can leave it empty and choose it later in the launcher.',
-    False, '');
-  GamePage.Add('Game folder (the one with eboot.bin):');
+    'Pick the folder, then click Next. You can leave it empty and choose it later in the launcher.';
+  GameLabel := TNewStaticText.Create(GamePage);
+  GameLabel.Parent := GamePage.Surface;
+  GameLabel.SetBounds(0, ScaleY(104), GamePage.SurfaceWidth, ScaleY(16));
+  GameLabel.Caption := 'Game folder (the one with eboot.bin):';
+  GameEdit := TNewEdit.Create(GamePage);
+  GameEdit.Parent := GamePage.Surface;
+  GameEdit.SetBounds(0, ScaleY(124), GamePage.SurfaceWidth - ScaleX(96), ScaleY(23));
   // Silent installs: setup.exe /VERYSILENT /SUPPRESSMSGBOXES /GAME="D:\path\CUSA03173"
-  GamePage.Values[0] := ExpandConstant('{param:GAME|}');
+  GameEdit.Text := ExpandConstant('{param:GAME|}');
+  GameBrowse := TNewButton.Create(GamePage);
+  GameBrowse.Parent := GamePage.Surface;
+  GameBrowse.SetBounds(GamePage.SurfaceWidth - ScaleX(88), ScaleY(123), ScaleX(88), ScaleY(25));
+  GameBrowse.Caption := 'Browse...';
+  GameBrowse.OnClick := @GameBrowseClick;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
@@ -221,7 +249,7 @@ begin
       Result := False;
     end;
   end else if CurPageID = GamePage.ID then begin
-    Dir := StripGamePath(GamePage.Values[0]);
+    Dir := StripGamePath(GameEdit.Text);
     GameDir := '';
     if Dir = '' then begin
       Result := SuppressibleMsgBox('No game folder chosen. The port is installed anyway; you will pick eboot.bin in the launcher, ' +
@@ -244,7 +272,7 @@ begin
       end;
     end;
     GameDir := Dir;
-    GamePage.Values[0] := Dir;
+    GameEdit.Text := Dir;
   end;
 end;
 

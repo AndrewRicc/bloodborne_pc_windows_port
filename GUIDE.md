@@ -234,3 +234,55 @@ Unattended installation, for testing:
 
 Uninstalling (Windows Settings > Apps) removes the port and the files it prepared from the game;
 saves (`user\`) and settings stay in the installation folder.
+
+## Tests
+
+After building, run the tests that need neither a graphics card nor the game:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\windows\run_tests.ps1
+```
+
+They check the menu table (one text per language, same placeholders), that the launcher and the
+preparation scripts compile, four Python test suites and five C++ test programs (settings and
+upscaler fallback, shader recompiler, motion vectors, UI composition). The other tests in `tests\`
+were written for Linux or need a Vulkan device, and are not run.
+
+After building an installer, this installs it silently into a temporary folder, checks what it
+installed and that nothing of the game is inside, then uninstalls it:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\windows\test_installer.ps1
+```
+
+## Automatic builds and releases (GitHub Actions)
+
+`.github\workflows\windows-installer.yml` builds the port on a GitHub Windows machine, runs both
+test scripts above and packs the installer:
+
+- **every push to `master` and every pull request**: build, tests, installer. The installer is
+  attached to the run as an artifact (Actions tab > the run > Artifacts). A failed test stops the
+  run before any installer is made.
+- **a version tag**: the same, then the installer is published as a GitHub release.
+
+To publish a release:
+
+```powershell
+git tag v0.3.0
+```
+
+```powershell
+git push origin v0.3.0
+```
+
+Use the name of your own remote in place of `origin` if it is called differently.
+
+Installers built there never contain DLSS: the machines have no NVIDIA card and the workflow asks
+for a build without it. On a fork, GitHub Actions must be enabled once in the repository's
+Actions tab.
+
+## Licences
+
+The port is under the GNU GPL, version 2 or later (`LICENSE`). The DLSS bridge in `gpu\dlss`
+(`bbdlss.h`, `bbdlss.cpp`, `build_bbdlss.bat`) is a separate library under the MIT licence
+(`gpu\dlss\LICENSE.txt`); the NVIDIA DLSS SDK it links stays under NVIDIA's own licence.

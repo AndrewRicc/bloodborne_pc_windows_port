@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Copyright 2026 AndrewRicc and bbport contributors
+// SPDX-License-Identifier: MIT
 // bbport: bbdlss.dll, the MSVC side of the DLSS bridge (bbdlss.h). Links NVIDIA's NGX static
 // library (nvsdk_ngx_s.lib, static CRT); nvngx_dlss.dll is loaded by NGX from dll_dir.
 

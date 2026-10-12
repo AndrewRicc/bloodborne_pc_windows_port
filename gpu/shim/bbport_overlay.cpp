@@ -75,6 +75,7 @@ float base_scale = 1.0f;
 std::chrono::steady_clock::time_point last_present{};
 float frame_ms_avg = 0.0f;
 VmaAllocator g_vma_allocator = nullptr;
+const Vulkan::Instance* g_vk_instance = nullptr;
 
 // Real-time frametime variance history buffer
 constexpr int FrametimeHistorySize = 120;
@@ -255,14 +256,17 @@ void UpdateSystemTelemetry() {
 }
 
 void SetOpen(bool value) {
-    if (menu_open.exchange(value) == value) {
+    if (menu_open.load() == value) {
         return;
     }
-    ImGui::GetIO().MouseDrawCursor = value;
+    // Save before the menu is marked closed: the window thread re-reads bbport.ini only while
+    // the menu is closed (window.cpp), so it can never read the file before this write.
     if (!value && dirty) {
         dirty = false;
         BbSettings::Save();
     }
+    menu_open = value;
+    ImGui::GetIO().MouseDrawCursor = value;
 }
 
 ImGuiKey KeyFromSdl(SDL_Keycode key) {
@@ -495,6 +499,7 @@ void Menu() {
     bool show_mask = s.debug_view == BbSettings::DebugReactive;
     if (ImGui::Checkbox(T(ShowMask), &show_mask)) {
         s.debug_view = show_mask ? BbSettings::DebugReactive : BbSettings::DebugNone;
+        dirty = true;
     }
     ImGui::EndDisabled();
     ImGui::EndDisabled();
@@ -503,6 +508,7 @@ void Menu() {
     bool show_motion = s.debug_view == BbSettings::DebugMotion;
     if (ImGui::Checkbox(T(ShowMotion), &show_motion)) {
         s.debug_view = show_motion ? BbSettings::DebugMotion : BbSettings::DebugNone;
+        dirty = true;
     }
     Hint(T(MotionHint));
     ImGui::EndDisabled(); // upscaler off
@@ -745,21 +751,33 @@ void HudOverlay() {
         ImGui::Separator();
 
         // 2. Vulkan VRAM telemetry
-        if (g_vma_allocator) {
+        if (g_vma_allocator && g_vk_instance) {
+            const auto& mem_props = g_vk_instance->GetMemoryProperties();
             VmaBudget budgets[VK_MAX_MEMORY_HEAPS] = {};
             vmaGetHeapBudgets(g_vma_allocator, budgets);
+
             VkDeviceSize total_vram_alloc = 0;
             VkDeviceSize total_vram_budget = 0;
-            for (u32 h = 0; h < VK_MAX_MEMORY_HEAPS; ++h) {
-                total_vram_alloc += budgets[h].statistics.allocationBytes;
-                if (budgets[h].budget > 0) {
-                    total_vram_budget += budgets[h].budget;
+            const u32 heap_count = std::min<u32>(mem_props.memoryHeapCount, VK_MAX_MEMORY_HEAPS);
+
+            for (u32 h = 0; h < heap_count; ++h) {
+                const bool is_device_local = (mem_props.memoryHeaps[h].flags & vk::MemoryHeapFlagBits::eDeviceLocal) != vk::MemoryHeapFlags{};
+                // Only count dedicated DeviceLocal heaps (VRAM)
+                if (is_device_local) {
+                    total_vram_alloc += budgets[h].statistics.allocationBytes;
+                    total_vram_budget += mem_props.memoryHeaps[h].size;
                 }
             }
+
+            // Fallback to total dedicated local memory if budget calculation is 0
+            if (total_vram_budget == 0 && g_vk_instance->GetDeviceLocalMemory() > 0) {
+                total_vram_budget = g_vk_instance->GetDeviceLocalMemory();
+            }
+
             const float alloc_mb = float(total_vram_alloc) / (1024.0f * 1024.0f);
             const float budget_mb = float(total_vram_budget) / (1024.0f * 1024.0f);
             if (budget_mb > 0.0f) {
-                ImGui::Text("VRAM: %.0f / %.0f MB (%.0f%%)", alloc_mb, budget_mb, (alloc_mb / budget_mb) * 100.0f);
+                ImGui::Text("VRAM: %.0f / %.0f MB (%.0f%%)", alloc_mb, budget_mb, std::clamp((alloc_mb / budget_mb) * 100.0f, 0.0f, 100.0f));
             } else {
                 ImGui::Text("VRAM: %.0f MB", alloc_mb);
             }
@@ -847,6 +865,7 @@ void Init(const Vulkan::Instance& instance, vk::Format format, u32 image_count) 
         return;
     }
     initialized = true;
+    g_vk_instance = &instance;
     g_vma_allocator = instance.GetAllocator();
     std::printf("Overlay: menu ready (Insert or L3+R3)\n");
 }

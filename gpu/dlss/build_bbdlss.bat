@@ -1,4 +1,5 @@
 @echo off
+rem SPDX-License-Identifier: MIT (gpu\dlss\LICENSE.txt)
 rem bbport: builds out\bbdlss.dll (MSVC) and copies nvngx_dlss.dll next to bbport.exe.
 rem   DLSS_SDK  NVIDIA DLSS SDK checkout (github.com/NVIDIA/DLSS), default modules\dlss-sdk,
 rem             else ..\dlss-sdk
