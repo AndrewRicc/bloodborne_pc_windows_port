@@ -31,4 +31,7 @@ if not defined PYTHON_EXE (
     exit /b 1
 )
 
+REM Bloodborne.exe (the desktop shortcut) asks for no console window: use pythonw when it exists.
+if "%BB_LAUNCHER_NO_CONSOLE%"=="1" for %%I in ("%PYTHON_EXE%") do if exist "%%~dpIpythonw.exe" set "PYTHON_EXE=%%~dpIpythonw.exe"
+
 start "" "%PYTHON_EXE%" launcher.py

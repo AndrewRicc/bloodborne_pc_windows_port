@@ -35,3 +35,5 @@ push_to_github.bat
 /modules/game/*
 !/modules/game/.gitkeep
 /modules/dlss-sdk/
+/Bloodborne.exe
+/modules/icon.ico

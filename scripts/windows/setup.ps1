@@ -1,12 +1,14 @@
 # Full setup of the Bloodborne port on Windows: checks every requirement, installs only what is
 # missing, downloads the components and builds. It can be run as many times as needed: the steps
 # already done are skipped.
-# Usage (from the repository folder):  setup.bat [-NoDlss] [-CheckOnly]
+# Usage (from the repository folder):  setup.bat [-NoDlss] [-CheckOnly] [-NoShortcut]
 #   -NoDlss     skips Visual Studio Build Tools and the NVIDIA SDK (about 9 GB less)
 #   -CheckOnly  reports what is missing without installing or building anything
+#   -NoShortcut does not build Bloodborne.exe and does not create the desktop shortcut
 param(
     [switch]$NoDlss,
     [switch]$CheckOnly,
+    [switch]$NoShortcut,
     [string]$Msys = 'C:\msys64'
 )
 # 'Continue': with 'Stop', PowerShell 5.1 treats any line an external program writes to stderr
@@ -211,6 +213,76 @@ $expected = @('out\bbport.exe')
 if ($dlss) { $expected += 'out\bbdlss.dll', 'out\nvngx_dlss.dll' }
 foreach ($f in $expected) { if (-not (Test-Path $f)) { Fail "$f is missing after the build" } }
 
+if (-not $NoShortcut) {
+    Section 'Bloodborne.exe and desktop shortcut'
+    # The icon is never part of the repository. It is modules\icon.ico when the user put one there,
+    # otherwise it is made from the icon inside the user's own game dump (sce_sys\icon0.png).
+    $icon = Join-Path $repo 'modules\icon.ico'
+    if (Test-Path $icon) { Ok 'icon: modules\icon.ico' }
+    else {
+        $icon = $null
+        $png = Join-Path $game 'sce_sys\icon0.png'
+        if (Test-Path $png) {
+            try {
+                Add-Type -AssemblyName System.Drawing
+                $source = [System.Drawing.Image]::FromFile($png)
+                $images = foreach ($size in 256, 64, 48, 32, 16) {
+                    $bitmap = New-Object System.Drawing.Bitmap $size, $size
+                    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+                    $graphics.InterpolationMode = 'HighQualityBicubic'
+                    $graphics.DrawImage($source, 0, 0, $size, $size)
+                    $graphics.Dispose()
+                    $stream = New-Object System.IO.MemoryStream
+                    $bitmap.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png)
+                    $bitmap.Dispose()
+                    , $stream.ToArray()
+                }
+                $source.Dispose()
+                # ICO container: header, one 16-byte entry per size, then the PNG images.
+                $ico = New-Object System.IO.MemoryStream
+                $writer = New-Object System.IO.BinaryWriter $ico
+                $writer.Write([uint16]0); $writer.Write([uint16]1); $writer.Write([uint16]$images.Count)
+                $offset = 6 + 16 * $images.Count
+                $sizes = 256, 64, 48, 32, 16
+                for ($i = 0; $i -lt $images.Count; $i++) {
+                    $writer.Write([byte]($sizes[$i] % 256)); $writer.Write([byte]($sizes[$i] % 256))
+                    $writer.Write([byte]0); $writer.Write([byte]0)
+                    $writer.Write([uint16]1); $writer.Write([uint16]32)
+                    $writer.Write([uint32]$images[$i].Length); $writer.Write([uint32]$offset)
+                    $offset += $images[$i].Length
+                }
+                foreach ($image in $images) { $writer.Write($image) }
+                $writer.Flush()
+                $icon = Join-Path $repo 'out\bloodborne.ico'
+                [System.IO.File]::WriteAllBytes($icon, $ico.ToArray())
+                Ok 'icon: made from the game''s own sce_sys\icon0.png (out\bloodborne.ico)'
+            } catch { $icon = $null; Warn "could not make the icon from icon0.png: $($_.Exception.Message)" }
+        }
+        if (-not $icon) { Warn 'no icon: put an .ico file in modules\icon.ico and run setup.bat again to get one' }
+    }
+    $resource = ''
+    if ($icon) {
+        Set-Content -Path 'out\bloodborne_icon.rc' -Value ('1 ICON "' + $icon.Replace('\', '/') + '"') -Encoding ASCII
+        $resource = 'windres out/bloodborne_icon.rc -O coff -o out/bloodborne_icon.o && '
+    }
+    $objects = if ($icon) { ' out/bloodborne_icon.o' } else { '' }
+    $build = $resource + 'gcc -O2 -s -mwindows scripts/windows/bloodborne_launcher.c' + $objects + ' -o Bloodborne.exe'
+    if ((Bash $build) -ne 0 -or -not (Test-Path 'Bloodborne.exe')) { Warn 'building Bloodborne.exe failed: start the port with launch_gui.bat' }
+    else {
+        Ok 'Bloodborne.exe built'
+        try {
+            $link = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Bloodborne.lnk'
+            $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($link)
+            $shortcut.TargetPath = Join-Path $repo 'Bloodborne.exe'
+            $shortcut.WorkingDirectory = $repo
+            $shortcut.IconLocation = (Join-Path $repo 'Bloodborne.exe') + ',0'
+            $shortcut.Description = 'Bloodborne PC port launcher'
+            $shortcut.Save()
+            Ok "desktop shortcut: $link"
+        } catch { Warn "could not create the desktop shortcut: $($_.Exception.Message)" }
+    }
+}
+
 Write-Host ''
 Write-Host 'Setup complete.' -ForegroundColor Green
-Write-Host 'To play: double-click launch_gui.bat (launcher), or run.bat.'
+Write-Host 'To play: the Bloodborne shortcut on the desktop, launch_gui.bat (launcher), or run.bat.'

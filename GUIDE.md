@@ -10,10 +10,12 @@ The game is not included: you need your own copy, dumped from a PS4.
 | Item | Purpose |
 |---|---|
 | `setup.bat` | Does the whole setup: checks the requirements, installs what is missing, builds |
+| `Bloodborne.exe` | Starts the launcher without a console window; `setup.bat` builds it and puts a shortcut to it on the desktop |
 | `launch_gui.bat` | Starts the graphical launcher |
 | `run.bat` | Starts the game directly |
 | `modules\game\` | **The game folder (`CUSA03173`) goes here** |
 | `modules\dlss-sdk\` | The NVIDIA DLSS SDK ends up here (`setup.bat` downloads it) |
+| `modules\icon.ico` | Optional: your own icon for `Bloodborne.exe` and the shortcut |
 | `fsr4_shaders\` | The FSR 4 shaders end up here (`setup.bat` downloads them) |
 | `out\` | The built game (`bbport.exe` and its DLLs) |
 | `user\savedata\` | Save files |
@@ -21,7 +23,7 @@ The game is not included: you need your own copy, dumped from a PS4.
 | `scripts\windows\` | The scripts used by `setup.bat` |
 | `gpu\`, `src\`, `third_party\` | The source code |
 
-`modules`, `fsr4_shaders`, `out`, `user` and `bbport.ini` are ignored by git.
+`modules`, `fsr4_shaders`, `out`, `user`, `bbport.ini` and `Bloodborne.exe` are ignored by git.
 
 ## What you need
 
@@ -84,6 +86,7 @@ The script checks every requirement and installs only what is missing:
 | DLSS SDK in `modules\dlss-sdk` (about 1.6 GB) | Downloads it, only if you have an RTX card |
 | Source submodules and the FSR fix | Downloads them and applies it |
 | FSR 4 shaders in `fsr4_shaders` (about 45 MB) | Downloads them |
+| `Bloodborne.exe` and the desktop shortcut | Builds the first and creates the second, after the game is built |
 
 Then it builds: the first time takes 20-30 minutes. At the end you must see `Setup complete.`
 
@@ -96,10 +99,22 @@ Options:
 
 - `.\setup.bat -CheckOnly` reports what is missing without installing or building anything.
 - `.\setup.bat -NoDlss` skips Visual Studio and the NVIDIA SDK (about 9 GB less).
+- `.\setup.bat -NoShortcut` does not build `Bloodborne.exe` and leaves the desktop alone.
 
 ## 4. Start the game
 
-With the launcher (recommended): double-click `launch_gui.bat`, or
+The easy way: double-click the **Bloodborne** shortcut on the desktop. It opens the launcher.
+
+The shortcut points to `Bloodborne.exe` in this folder, which only starts the launcher: the game
+itself, its DLLs and your game data stay where they are. Do not move `Bloodborne.exe` elsewhere;
+if you move the whole folder, run `setup.bat` again to recreate the shortcut.
+
+**The icon** is not part of this repository. `setup.bat` makes it from the icon inside your own
+game copy (`modules\game\CUSA03173\sce_sys\icon0.png`). To use a different one, save it as
+`modules\icon.ico` and run `setup.bat` again. With the game outside `modules\game` and no
+`modules\icon.ico`, the shortcut gets the default Windows icon.
+
+From the folder, the launcher also starts with a double-click on `launch_gui.bat`, or
 
 ```powershell
 .\launch_gui.bat
