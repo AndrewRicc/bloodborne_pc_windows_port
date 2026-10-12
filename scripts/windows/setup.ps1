@@ -161,8 +161,23 @@ if ($hasGit -and (Test-Path "$sub\.git")) {
 if ($dlss) {
     $sdk = Join-Path $repo 'modules\dlss-sdk'
     $sibling = Join-Path (Split-Path $repo -Parent) 'dlss-sdk'
-    if (Test-Path "$sdk\include\nvsdk_ngx_vk.h") { Ok 'DLSS SDK in modules\dlss-sdk' }
-    elseif (Test-Path "$sibling\include\nvsdk_ngx_vk.h") { Ok "DLSS SDK in $sibling" }
+    # All three files the build needs: a download cut short (disk full, lost connection) can leave
+    # the folder with only some of them.
+    function SdkComplete($dir) {
+        return (Test-Path "$dir\include\nvsdk_ngx_vk.h") -and (Test-Path "$dir\lib\Windows_x86_64\x64\nvsdk_ngx_s.lib") -and
+               (Test-Path "$dir\lib\Windows_x86_64\rel\nvngx_dlss.dll")
+    }
+    if ((Test-Path "$sdk\.git") -and -not (SdkComplete $sdk) -and -not $CheckOnly -and $hasGit) {
+        Doing 'DLSS SDK in modules\dlss-sdk is incomplete: restoring its files'
+        & git -C $sdk checkout -f HEAD
+        if (-not (SdkComplete $sdk)) { Fail 'the DLSS SDK in modules\dlss-sdk is incomplete and could not be restored: delete the modules\dlss-sdk folder and run setup.bat again' }
+    }
+    if (SdkComplete $sdk) { Ok 'DLSS SDK in modules\dlss-sdk' }
+    elseif (SdkComplete $sibling) { Ok "DLSS SDK in $sibling" }
+    elseif (Test-Path $sdk) {
+        if ($CheckOnly) { Missing 'DLSS SDK in modules\dlss-sdk is incomplete' }
+        else { Fail 'the DLSS SDK in modules\dlss-sdk is incomplete: delete the modules\dlss-sdk folder and run setup.bat again' }
+    }
     elseif ($CheckOnly -or -not $hasGit) { Missing 'DLSS SDK in modules\dlss-sdk' }
     else {
         Doing 'NVIDIA DLSS SDK in modules\dlss-sdk (about 1.6 GB)'
@@ -207,7 +222,7 @@ $env:PYTHON = $py -replace '\\', '/'
 if ((Bash 'bash scripts/windows/build_bbport.sh') -ne 0) { Fail 'building the game failed' }
 if ($dlss) {
     & cmd /c 'gpu\dlss\build_bbdlss.bat'
-    if ($LASTEXITCODE -ne 0) { Fail 'building the DLSS part failed' }
+    if ($LASTEXITCODE -ne 0) { Fail 'building the DLSS part failed: the lines above give the reason. The game itself is built; run setup.bat -NoDlss to finish without DLSS' }
 }
 $expected = @('out\bbport.exe')
 if ($dlss) { $expected += 'out\bbdlss.dll', 'out\nvngx_dlss.dll' }
