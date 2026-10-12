@@ -3,6 +3,9 @@ setlocal
 cd /d "%~dp0"
 
 set "PYTHON_EXE="
+REM python_path.txt is written by the Windows installer with the Python it found.
+if exist "python_path.txt" set /p PYTHON_EXE=<python_path.txt
+if defined PYTHON_EXE if not exist "%PYTHON_EXE%" set "PYTHON_EXE="
 for %%P in (
     "C:\Program Files\Python313\python.exe"
     "C:\Program Files\Python312\python.exe"

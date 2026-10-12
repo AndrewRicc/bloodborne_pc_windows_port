@@ -191,3 +191,46 @@ If it prints nothing, the driver does not support it and the entry stays greyed 
 - MSYS2 must be in `C:\msys64`, the default path.
 - The branches that install missing programs have seen little testing on clean PCs: if one fails,
   the message says which step, and the table above covers the known cases.
+
+## Building the Windows installer
+
+For people who should not have to build anything, the port can be packed into a normal Windows
+installer. It checks the PC, asks for the game folder, installs the port already built and
+creates the shortcuts. It needs no MSYS2 and no Visual Studio on the target PC, only Python.
+
+Build the port first (`setup.bat`), then:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\windows\make_installer.ps1
+```
+
+The result is `dist\bbport-setup-<date>-<commit>.exe` (about 55 MB). It needs Inno Setup 6 on the
+PC that builds it (`winget install --id JRSoftware.InnoSetup -e`).
+
+What the installer contains, and what it never contains:
+
+| In the package | Never in the package |
+|---|---|
+| `bbport.exe`, its DLLs, the launcher and its scripts | Any game file |
+| The FSR 4 shaders (AMD, MIT licence) | The game's icon: it is made on each PC from that user's own game copy |
+| `LICENSE` (GPL) and `SOURCE.txt` with the repository and commit | Files prepared from the game (`out\boot*.bin`, `eboot.elf`), saves, settings |
+| | NVIDIA DLSS files, unless you ask for them |
+
+The script refuses to finish if it finds one of the files on the right in the staging folder.
+
+**Commit and push before building a package you publish.** The port is GPL: who receives the
+installer must be able to get the exact source, and `SOURCE.txt` names the commit it was built from.
+
+**DLSS.** By default the installer has no DLSS: NVIDIA's SDK licence does not allow using the SDK
+in a way that subjects it to an open source licence, and the port is GPL. `-WithDlss` packs
+`bbdlss.dll` and `nvngx_dlss.dll` anyway; keep such a package private. Anyone can still get DLSS
+by building from source with `setup.bat`.
+
+Unattended installation, for testing:
+
+```powershell
+.\bbport-setup-<version>.exe /VERYSILENT /SUPPRESSMSGBOXES /GAME="D:\path\to\CUSA03173"
+```
+
+Uninstalling (Windows Settings > Apps) removes the port and the files it prepared from the game;
+saves (`user\`) and settings stay in the installation folder.

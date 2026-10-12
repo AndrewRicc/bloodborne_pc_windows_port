@@ -18,6 +18,18 @@ if [ ! -f out/libatrac9.a ]; then
     ar rcs out/libatrac9.a out/atrac9/*.o
 fi
 
+# CMake's build folder remembers its absolute path: after the port's folder is moved or renamed it
+# refuses to build. Start it again from scratch in that case.
+if [ -f out/gpu/CMakeCache.txt ]; then
+    cached=$(sed -n 's/^CMAKE_CACHEFILE_DIR:INTERNAL=//p' out/gpu/CMakeCache.txt | tr -d '\r')
+    current=$(cygpath -m "$PWD/out/gpu")
+    if [ "${cached,,}" != "${current,,}" ]; then
+        echo "== The folder moved (was $cached): rebuilding from scratch"
+        rm -rf out/gpu
+        mkdir -p out/gpu
+    fi
+fi
+
 if [ ! -f out/gpu/build.ninja ]; then
     echo "== CMake configure"
     cmake -S gpu -B out/gpu -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \

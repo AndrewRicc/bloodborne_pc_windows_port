@@ -238,40 +238,10 @@ if (-not $NoShortcut) {
         $icon = $null
         $png = Join-Path $game 'sce_sys\icon0.png'
         if (Test-Path $png) {
-            try {
-                Add-Type -AssemblyName System.Drawing
-                $source = [System.Drawing.Image]::FromFile($png)
-                $images = foreach ($size in 256, 64, 48, 32, 16) {
-                    $bitmap = New-Object System.Drawing.Bitmap $size, $size
-                    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-                    $graphics.InterpolationMode = 'HighQualityBicubic'
-                    $graphics.DrawImage($source, 0, 0, $size, $size)
-                    $graphics.Dispose()
-                    $stream = New-Object System.IO.MemoryStream
-                    $bitmap.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png)
-                    $bitmap.Dispose()
-                    , $stream.ToArray()
-                }
-                $source.Dispose()
-                # ICO container: header, one 16-byte entry per size, then the PNG images.
-                $ico = New-Object System.IO.MemoryStream
-                $writer = New-Object System.IO.BinaryWriter $ico
-                $writer.Write([uint16]0); $writer.Write([uint16]1); $writer.Write([uint16]$images.Count)
-                $offset = 6 + 16 * $images.Count
-                $sizes = 256, 64, 48, 32, 16
-                for ($i = 0; $i -lt $images.Count; $i++) {
-                    $writer.Write([byte]($sizes[$i] % 256)); $writer.Write([byte]($sizes[$i] % 256))
-                    $writer.Write([byte]0); $writer.Write([byte]0)
-                    $writer.Write([uint16]1); $writer.Write([uint16]32)
-                    $writer.Write([uint32]$images[$i].Length); $writer.Write([uint32]$offset)
-                    $offset += $images[$i].Length
-                }
-                foreach ($image in $images) { $writer.Write($image) }
-                $writer.Flush()
-                $icon = Join-Path $repo 'out\bloodborne.ico'
-                [System.IO.File]::WriteAllBytes($icon, $ico.ToArray())
-                Ok 'icon: made from the game''s own sce_sys\icon0.png (out\bloodborne.ico)'
-            } catch { $icon = $null; Warn "could not make the icon from icon0.png: $($_.Exception.Message)" }
+            $made = Join-Path $repo 'out\bloodborne.ico'
+            & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'make_icon.ps1') -Png $png -Out $made | Out-Host
+            if ($LASTEXITCODE -eq 0) { $icon = $made; Ok 'icon: made from the game''s own sce_sys\icon0.png (out\bloodborne.ico)' }
+            else { Warn 'could not make the icon from icon0.png' }
         }
         if (-not $icon) { Warn 'no icon: put an .ico file in modules\icon.ico and run setup.bat again to get one' }
     }

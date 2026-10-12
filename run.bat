@@ -3,7 +3,9 @@ setlocal
 
 cd /d "%~dp0"
 
-REM Find Python 3
+REM Find Python 3. python_path.txt is written by the Windows installer with the Python it found.
+if "%PYTHON%"=="" if exist "python_path.txt" set /p PYTHON=<python_path.txt
+if not "%PYTHON%"=="" if not exist "%PYTHON%" set "PYTHON="
 if "%PYTHON%"=="" (
     for %%P in (
         "C:\Program Files\Python313\python.exe"
