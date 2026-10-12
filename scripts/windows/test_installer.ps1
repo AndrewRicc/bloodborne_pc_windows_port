@@ -16,7 +16,12 @@ function Check($name, $ok) {
 $target = Join-Path ([System.IO.Path]::GetTempPath()) ("bbport-install-test-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
 Write-Host "Installer: $Setup"
 Write-Host "Target:    $target"
-$install = Start-Process $Setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$target", '/TASKS=', "/LOG=$target.log" -PassThru -Wait
+# Made-up saves of an earlier installation, to test the import page.
+$saves = "$target-saves"
+$slot = Join-Path $saves 'user\savedata\1\CUSA00207\SPRJ0005'
+New-Item -ItemType Directory -Force $slot | Out-Null
+Set-Content -Path (Join-Path $slot 'userdata0000') -Value 'test save' -Encoding ASCII
+$install = Start-Process $Setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$target", '/TASKS=', "/SAVES=$saves", "/LOG=$target.log" -PassThru -Wait
 Check 'the installer finishes without error' ($install.ExitCode -eq 0)
 if ($install.ExitCode -ne 0 -and (Test-Path "$target.log")) { Get-Content "$target.log" -Tail 30 | Out-Host }
 
@@ -25,14 +30,17 @@ foreach ($file in 'Bloodborne.exe', 'run.bat', 'launch_gui.bat', 'launcher.py', 
                   'scripts\windows\make_icon.ps1', 'patches\Bloodborne.xml', 'fsr4_shaders\rcas.spv', 'unins000.exe') {
     Check "installed: $file" (Test-Path (Join-Path $target $file))
 }
+Check 'the saves of the earlier installation are imported' (Test-Path (Join-Path $target 'user\savedata\1\CUSA00207\SPRJ0005\userdata0000'))
 Check 'the port''s DLLs are installed' (@(Get-ChildItem "$target\out\*.dll" -ErrorAction SilentlyContinue).Count -ge 50)
 Check 'the optimized FSR 4 shaders are installed' (@(Get-ChildItem "$target\fsr4_shaders\opt\*.spv" -ErrorAction SilentlyContinue).Count -gt 0)
 
 # Nothing of the game, no icon made from it, no saves or settings of the person who built it.
 $forbidden = 'eboot*', 'boot*.bin', '*.elf', '*.sfo', 'icon0.*', '*.ico', '*.pkg', 'bbport.ini', 'launcher_settings.json'
-$found = @(Get-ChildItem $target -Recurse -File -Include $forbidden -ErrorAction SilentlyContinue)
+$found = @(Get-ChildItem $target -Recurse -File -Include $forbidden -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notlike "$target\user\*" })
 $found | ForEach-Object { Write-Host "  $($_.FullName)" -ForegroundColor Red }
-Check 'no game file, icon, save or personal setting in the package' ($found.Count -eq 0 -and -not (Test-Path "$target\user"))
+# user\ holds only the saves imported above: the package itself ships none.
+$shipped = @(Get-ChildItem "$target\user" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne 'userdata0000' })
+Check 'no game file, icon, save or personal setting in the package' ($found.Count -eq 0 -and $shipped.Count -eq 0)
 $nvidia = @(Get-ChildItem $target -Recurse -File -Include 'nvngx*', 'bbdlss*' -ErrorAction SilentlyContinue)
 if ($Setup -match '-dlss') { Write-Host "[NOTE] DLSS package: $($nvidia.Count) NVIDIA file(s) inside, keep it private" -ForegroundColor Yellow }
 else { Check 'no NVIDIA DLSS file in the package' ($nvidia.Count -eq 0) }
@@ -41,10 +49,12 @@ if (Test-Path "$target\unins000.exe") {
     $remove = Start-Process "$target\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru -Wait
     Start-Sleep -Seconds 2
     Check 'the uninstaller finishes without error' ($remove.ExitCode -eq 0)
+    Check 'the uninstaller keeps the saves' (Test-Path (Join-Path $target 'user\savedata\1\CUSA00207\SPRJ0005\userdata0000'))
     Check 'the uninstaller removes the port' (-not (Test-Path "$target\out\bbport.exe") -and -not (Test-Path "$target\Bloodborne.exe"))
 }
 if (Test-Path $target) { Remove-Item -Recurse -Force $target -ErrorAction SilentlyContinue }
 Remove-Item "$target.log" -ErrorAction SilentlyContinue
+if (Test-Path $saves) { Remove-Item -Recurse -Force $saves -ErrorAction SilentlyContinue }
 
 Write-Host ''
 if ($problems.Count) { Write-Host "$($problems.Count) check(s) failed" -ForegroundColor Red; exit 1 }

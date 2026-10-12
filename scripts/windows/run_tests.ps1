@@ -33,7 +33,7 @@ Result 'launcher.py and scripts compile' ($LASTEXITCODE -eq 0)
 
 Write-Host '== Python tests' -ForegroundColor Cyan
 # The other tests in tests\ drive run.sh or Linux behaviour and do not pass on Windows.
-foreach ($test in 'test_patches', 'test_prepare', 'test_content', 'test_upscaler_assets') {
+foreach ($test in 'test_patches', 'test_prepare', 'test_content', 'test_upscaler_assets', 'test_savedata_import') {
     Push-Location tests
     & $py -m unittest $test 2>&1 | Select-Object -Last 4 | Out-Host
     $ok = $LASTEXITCODE -eq 0

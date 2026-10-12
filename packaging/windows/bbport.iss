@@ -75,10 +75,14 @@ var
   GameEdit: TNewEdit;
   GameBrowse: TNewButton;
   GameText, GameLabel: TNewStaticText;
+  SavesPage: TWizardPage;
+  SavesEdit: TNewEdit;
+  SavesBrowse: TNewButton;
+  SavesText, SavesLabel: TNewStaticText;
   CheckDone: Boolean;
   MissingCount: Integer;
   PythonMissing: Boolean;
-  PythonPath, GameDir: String;
+  PythonPath, GameDir, SavesDir, SavesResult: String;
 
 function PowerShellExe: String;
 begin
@@ -177,6 +181,47 @@ begin
   if BrowseForFolder('Select your Bloodborne folder (the one with eboot.bin):', Dir, False) then GameEdit.Text := Dir;
 end;
 
+procedure SavesBrowseClick(Sender: TObject);
+var
+  Dir: String;
+begin
+  Dir := RemoveBackslashUnlessRoot(Trim(RemoveQuotes(Trim(SavesEdit.Text))));
+  if BrowseForFolder('Select the old installation folder, or its user\savedata folder:', Dir, False) then SavesEdit.Text := Dir;
+end;
+
+// True when the folder holds save data of the port: savedata\<user id>\<title id>\, looked for in
+// the folder itself and in the usual places below an installation folder.
+function HasSaves(Dir: String): Boolean;
+var
+  Roots: array[0..4] of String;
+  I: Integer;
+  Users, Titles: TFindRec;
+begin
+  Result := False;
+  Roots[0] := Dir + '\user\savedata';
+  Roots[1] := Dir + '\savedata';
+  Roots[2] := Dir;
+  Roots[3] := ExtractFileDir(Dir);
+  Roots[4] := ExtractFileDir(ExtractFileDir(Dir));
+  for I := 0 to 4 do begin
+    if FindFirst(Roots[I] + '\*', Users) then begin
+      try
+        repeat
+          if (Users.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0) and (Users.Name <> '.') and (Users.Name <> '..') then begin
+            if FindFirst(Roots[I] + '\' + Users.Name + '\CUSA*', Titles) then begin
+              FindClose(Titles);
+              Result := True;
+            end;
+          end;
+        until Result or not FindNext(Users);
+      finally
+        FindClose(Users);
+      end;
+    end;
+    if Result then Exit;
+  end;
+end;
+
 procedure InitializeWizard;
 begin
   CheckPage := CreateCustomPage(wpInfoBefore, 'System check',
@@ -230,6 +275,31 @@ begin
   GameBrowse.SetBounds(GamePage.SurfaceWidth - ScaleX(88), ScaleY(123), ScaleX(88), ScaleY(25));
   GameBrowse.Caption := 'Browse...';
   GameBrowse.OnClick := @GameBrowseClick;
+
+  SavesPage := CreateCustomPage(GamePage.ID, 'Your save data', 'Do you have saves from an earlier installation?');
+  SavesText := TNewStaticText.Create(SavesPage);
+  SavesText.Parent := SavesPage.Surface;
+  SavesText.AutoSize := False;
+  SavesText.WordWrap := True;
+  SavesText.SetBounds(0, 0, SavesPage.SurfaceWidth, ScaleY(96));
+  SavesText.Caption :=
+    'To keep playing from where you were, pick the folder of your earlier installation of the port, or just ' +
+    'its user\savedata folder. The saves are copied into this installation; the originals are not touched.' + #13#10#13#10 +
+    'Leave it empty to start without importing. You can also do it later with "Import saves..." in the launcher.';
+  SavesLabel := TNewStaticText.Create(SavesPage);
+  SavesLabel.Parent := SavesPage.Surface;
+  SavesLabel.SetBounds(0, ScaleY(104), SavesPage.SurfaceWidth, ScaleY(16));
+  SavesLabel.Caption := 'Folder with your saves (optional):';
+  SavesEdit := TNewEdit.Create(SavesPage);
+  SavesEdit.Parent := SavesPage.Surface;
+  SavesEdit.SetBounds(0, ScaleY(124), SavesPage.SurfaceWidth - ScaleX(96), ScaleY(23));
+  // Silent installs: /SAVES="D:\old\bbport"
+  SavesEdit.Text := ExpandConstant('{param:SAVES|}');
+  SavesBrowse := TNewButton.Create(SavesPage);
+  SavesBrowse.Parent := SavesPage.Surface;
+  SavesBrowse.SetBounds(SavesPage.SurfaceWidth - ScaleX(88), ScaleY(123), ScaleX(88), ScaleY(25));
+  SavesBrowse.Caption := 'Browse...';
+  SavesBrowse.OnClick := @SavesBrowseClick;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
@@ -273,7 +343,41 @@ begin
     end;
     GameDir := Dir;
     GameEdit.Text := Dir;
+  end else if CurPageID = SavesPage.ID then begin
+    Dir := RemoveBackslashUnlessRoot(Trim(RemoveQuotes(Trim(SavesEdit.Text))));
+    SavesDir := '';
+    if Dir = '' then Exit;
+    if not DirExists(Dir) or not HasSaves(Dir) then begin
+      SuppressibleMsgBox('No save data found in this folder:' + #13#10#13#10 + Dir + #13#10#13#10 +
+                         'Pick the folder of the earlier installation or its user\savedata folder, or leave the field empty.',
+                         mbError, MB_OK, IDOK);
+      Result := False;
+      Exit;
+    end;
+    SavesDir := Dir;
+    SavesEdit.Text := Dir;
   end;
+end;
+
+// Copies the chosen saves with the port's own script (scripts\savedata_import.py): saves already
+// in this installation are moved to user\savedata_backup_<date>, never overwritten.
+procedure ImportSaves(App: String);
+var
+  ResultCode: Integer;
+  OutFile: String;
+  Output: AnsiString;
+begin
+  if SavesDir = '' then Exit;
+  SavesResult := 'The saves could not be imported. Use "Import saves..." in the launcher.';
+  if PythonPath = '' then Exit;
+  OutFile := ExpandConstant('{tmp}\savedata_import.txt');
+  if Exec(ExpandConstant('{cmd}'), '/c ""' + PythonPath + '" "' + App + '\scripts\savedata_import.py" "' + SavesDir +
+          '" --user "' + App + '\user" > "' + OutFile + '" 2>&1"', App, SW_HIDE, ewWaitUntilTerminated, ResultCode) then begin
+    if LoadStringFromFile(OutFile, Output) then Log('savedata_import: ' + Output);
+    if ResultCode = 0 then SavesResult := 'Your saves were imported.'
+    else if Output <> '' then SavesResult := 'The saves were not imported: ' + Trim(Output);
+  end;
+  if ResultCode <> 0 then SuppressibleMsgBox(SavesResult, mbError, MB_OK, IDOK);
 end;
 
 // Runs when the last file is in place, before the shortcuts are created.
@@ -285,6 +389,7 @@ var
 begin
   App := ExpandConstant('{app}');
   if PythonPath <> '' then SaveStringToFile(App + '\python_path.txt', PythonPath + #13#10, False);
+  ImportSaves(App);
   if GameDir = '' then Exit;
   // An existing settings file (update or reinstall) keeps the user's launcher choices.
   Settings := App + '\launcher_settings.json';
@@ -313,5 +418,7 @@ function UpdateReadyMemo(Space, NewLine, MemoUserInfoInfo, MemoDirInfo, MemoType
 begin
   Result := MemoDirInfo + NewLine + NewLine + 'Game folder:' + NewLine + Space;
   if GameDir <> '' then Result := Result + GameDir else Result := Result + '(to be chosen in the launcher)';
+  Result := Result + NewLine + NewLine + 'Save data:' + NewLine + Space;
+  if SavesDir <> '' then Result := Result + 'import from ' + SavesDir else Result := Result + '(nothing to import)';
   if MemoTasksInfo <> '' then Result := Result + NewLine + NewLine + MemoTasksInfo;
 end;

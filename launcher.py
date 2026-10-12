@@ -6,6 +6,7 @@ import locale
 import os
 import queue
 import subprocess
+import sys
 import threading
 import tkinter as tk
 import xml.etree.ElementTree as ET
@@ -14,6 +15,7 @@ from pathlib import Path
 from tkinter import ttk, filedialog, messagebox
 
 APP_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(APP_DIR / "scripts"))  # savedata_import (Import saves...)
 RUN_BAT = APP_DIR / "run.bat"
 LOG_FILE = APP_DIR / "launcher.log"
 SETTINGS_FILE = APP_DIR / "launcher_settings.json"
@@ -369,6 +371,8 @@ class BloodborneLauncher(tk.Tk):
         bar.pack(side="bottom", fill="x", pady=(6, 0))
         ttk.Button(bar, text="✓ Verify Setup", style="Secondary.TButton",
                    command=self.manual_verify_setup).pack(side="left")
+        ttk.Button(bar, text="Import saves...", style="Secondary.TButton",
+                   command=self.import_saves).pack(side="left", padx=(6, 0))
         ttk.Button(bar, text="Copy log", style="Secondary.TButton", command=self.copy_log).pack(side="left", padx=6)
         ttk.Button(bar, text="Clear", style="Secondary.TButton", command=self.clear_log).pack(side="left")
         ttk.Button(bar, text="Open launcher.log", style="Secondary.TButton",
@@ -945,6 +949,46 @@ class BloodborneLauncher(tk.Tk):
             messagebox.showerror("Error", f"Could not open {LOG_FILE}:\n{ex}")
 
     # ------------------------------------------------------------- actions
+    def import_saves(self):
+        """Copies the saves of another installation of the port into this one."""
+        if self.proc is not None:
+            messagebox.showwarning("Game running", "Close the game before importing saves.")
+            return
+        try:
+            import savedata_import
+        except ImportError as ex:
+            messagebox.showerror("Import saves", f"scripts/savedata_import.py is missing:\n{ex}")
+            return
+        chosen = filedialog.askdirectory(
+            title="Select the old installation folder, or its user / savedata folder",
+            mustexist=True,
+        )
+        if not chosen:
+            return
+        chosen = os.path.normpath(chosen)
+        found = savedata_import.find_saves(chosen)
+        if not found:
+            messagebox.showerror(
+                "Import saves",
+                f"No save data found in:\n{chosen}\n\n"
+                "Pick the folder of the old installation, or its user\\savedata folder.")
+            return
+        user_dir = Path(os.environ.get("BB_USER_DIR") or APP_DIR / "user")
+        if not messagebox.askyesno(
+                "Import saves",
+                f"Found: {savedata_import.describe(found)}\n\nfrom:\n{chosen}\n\n"
+                f"Copy them into this installation?\n{user_dir / 'savedata'}\n\n"
+                "Saves already here are not deleted: they are moved to a savedata_backup folder."):
+            return
+        try:
+            summary = savedata_import.import_saves(chosen, user_dir)
+        except (ValueError, OSError) as ex:
+            self.log(f"Import saves failed: {ex}")
+            messagebox.showerror("Import saves", str(ex))
+            return
+        self.log(summary)
+        messagebox.showinfo("Import saves", summary)
+
     def browse_eboot(self):
         current = resolve_game_dir(self.eboot_var.get()) if self.eboot_var.get().strip() else None
         start = current or (DEFAULT_GAME if DEFAULT_GAME.exists() else Path("D:/"))

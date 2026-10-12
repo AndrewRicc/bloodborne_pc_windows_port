@@ -153,6 +153,23 @@ remains, go back to FSR 3.1 from the same menu.
 **DLSS status.** It initializes and runs without errors. Its image quality in gameplay has not
 been thoroughly verified yet.
 
+## Moving your saves to another installation
+
+Saves are in `user\savedata` inside the port's folder. To carry them to a new installation, keep
+that folder (or the whole old installation) and import it:
+
+- **In the installer**: the "Your save data" page asks for the folder.
+- **In the launcher**: the **Import saves...** button at the bottom.
+- **From a terminal**:
+
+```powershell
+python scripts\savedata_import.py "D:\old\bbport" --user user
+```
+
+Any folder around the saves is accepted: the old installation, its `user` folder, `savedata`, or
+the folders inside it. The saves are copied, the originals stay where they are. Saves already in
+the new installation are moved to `user\savedata_backup_<date>_<time>`, never overwritten.
+
 ## Common problems
 
 | Symptom | What to do |

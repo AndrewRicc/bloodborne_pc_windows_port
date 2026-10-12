@@ -33,6 +33,10 @@ Saves:     user\savedata   (kept when you uninstall or update)
 Settings:  bbport.ini, launcher_settings.json
 Crash logs: out\crash_*.log
 
+Saves from an earlier installation: the installer asks for them, and the launcher has an
+"Import saves..." button. Pick the old installation folder or its user\savedata folder. Saves
+already present are moved to user\savedata_backup_<date>, never overwritten.
+
 The shortcut icon is made on your PC from the icon inside your own game copy.
 
 Source code and licences
