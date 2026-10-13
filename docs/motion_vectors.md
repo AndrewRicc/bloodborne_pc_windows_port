@@ -129,3 +129,17 @@ BB_FRAME_STATS=1 BB_TOGGLE_FILE=out/dev/motion-toggles bash native_probe/run.sh 
 Замер `out/motion-gated.log`: ~225 сохранённых отрисовок и ~600 «неподвижных» на кадр,
 без переполнения, 58–80 FPS в игровых сценах. Визуально исчезновение шлейфа
 на пиле ещё нужно подтвердить.
+
+## Vertical sign
+
+The camera motion vectors rebuild a view position from depth, and for that they must know which
+way view +y goes on the screen. Three states so far. 0.2 assumed up (the viewport flips y): wrong
+on the Cathedral Ward stairs and in the sewers, with vertical streaks. 0.3 assumed down: right
+there, but smearing when the camera turns elsewhere. Now (from upstream 0.4) nothing is assumed:
+the direction depends on the area, so each frame takes the sign of the viewport y scale of its
+G-buffer pass and puts it on the projection's y scale (`camera_projection.h`,
+`CameraMotion::OnConstants`); `camera_motion.comp` and `taa.comp` both take ndc +y down the screen.
+`BB_CAMERA_Y=up` or `BB_CAMERA_Y=down` forces one direction whatever the viewport says, to compare
+in an area that looks wrong. The log (`launcher.log` or the console) prints
+`Camera motion: G-buffer viewport y flipped|not flipped: screen y follows view -y|+y` at the first
+camera and again whenever it changes.

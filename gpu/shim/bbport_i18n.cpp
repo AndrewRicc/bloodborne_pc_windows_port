@@ -882,6 +882,15 @@ constexpr Entry kEntries[] = {
 {Close, {
     "Close", "Закрыть", "Chiudi", "Cerrar", "Fermer", "Schließen", "Fechar", "Zamknij", "Kapat",
     "关闭", "閉じる", "닫기"}},
+{QuitGame, {
+    "Quit game", "Выйти из игры", "Esci dal gioco", "Salir del juego", "Quitter le jeu",
+    "Spiel beenden", "Sair do jogo", "Wyjdź z gry", "Oyundan çık", "退出游戏", "ゲームを終了",
+    "게임 종료"}},
+{QuitConfirm, {
+    "Press again to quit", "Нажмите ещё раз для выхода", "Premi di nuovo per uscire",
+    "Pulsa de nuevo para salir", "Appuyez à nouveau pour quitter", "Zum Beenden erneut drücken",
+    "Pressione novamente para sair", "Naciśnij ponownie, aby wyjść", "Çıkmak için tekrar basın",
+    "再按一次退出", "もう一度押すと終了", "다시 누르면 종료"}},
 {SavedIn, {
     "Settings are saved in bbport.ini", "Настройки сохраняются в bbport.ini",
     "Impostazioni salvate in bbport.ini", "Los ajustes se guardan en bbport.ini",

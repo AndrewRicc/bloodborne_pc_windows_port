@@ -14,6 +14,7 @@
 #include "video_core/amdgpu/pm4_cmds.h"
 #include "video_core/buffer_cache/buffer.h"
 #include "video_core/buffer_cache/buffer_cache.h"
+#include "video_core/renderer_vulkan/camera_projection.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
@@ -267,7 +268,9 @@ void Rasterizer::PrepareRenderState(const GraphicsPipeline* pipeline) {
     // main camera (shadow passes bind the same layout with the light's camera).
     gbuffer_draw = camera_motion->Enabled() && std::popcount(key.mrt_mask) >= 5 && db_desc.first;
     if (gbuffer_draw) {
-        camera_motion->OnGBufferPass(db_desc.first);
+        const auto& vp = regs.viewports[0];
+        camera_motion->OnGBufferPass(db_desc.first, CameraProjection::ViewportSign(vp.xscale),
+                                     CameraProjection::ViewportSign(vp.yscale));
     }
     if (upscaler->Enabled() && cb_descs[0].first) {
         upscaler->OnColorTarget(cb_descs[0].first);

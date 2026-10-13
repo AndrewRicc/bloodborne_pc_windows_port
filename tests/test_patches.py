@@ -9,7 +9,7 @@ from patches import (EBOOT_BASE, OUTPUT_SIZE, RESOLUTION_TEMPLATE, SCENE_HEIGHT,
                      SCENE_WIDTH, UI_HEIGHT, UI_WIDTH, compile_patches,
                      render_size, resolution_writes, scaled_sizes, effect_patches,
                      validate_patch_requirements, external_patches, external_selection,
-                     compile_external)
+                     compile_external, SKIP_NETWORK_CHOICE, skip_network_choice)
 
 XML = ROOT / 'patches/Bloodborne.xml'
 SEGMENTS = [(0, 0x6000000)]
@@ -160,6 +160,30 @@ class ExternalPatchTests(unittest.TestCase):
 
     def test_built_in_file_is_not_external(self):
         self.assertEqual(external_patches(XML.parent), [])
+
+
+class SkipNetworkChoiceTests(unittest.TestCase):
+    def test_on_unless_switched_off(self):
+        self.assertTrue(skip_network_choice({}))
+        self.assertTrue(skip_network_choice({'BB_SKIP_NETWORK_CHOICE': '1'}))
+        self.assertTrue(skip_network_choice({'BB_SKIP_NETWORK_CHOICE': ''}))
+        self.assertFalse(skip_network_choice({'BB_SKIP_NETWORK_CHOICE': '0'}))
+
+    def test_patch_rewrites_only_the_dialog_builder(self):
+        writes = compile_patches(XML, [SKIP_NETWORK_CHOICE], '01.09', SEGMENTS)
+        self.assertEqual(len(writes), 1)
+        offset, data = writes[0]
+        self.assertEqual(offset, 0x01f39030 - EBOOT_BASE)
+        self.assertEqual(len(data), 46)
+        self.assertEqual(data[:4], bytes.fromhex('554889e5'))   # push rbp; mov rbp, rsp
+        self.assertEqual(data[-1], 0xc3)                        # ret
+
+    def test_no_overlap_with_the_frame_rate_patches(self):
+        skip = {offset+i for offset, data in compile_patches(XML, [SKIP_NETWORK_CHOICE], '01.09', SEGMENTS)
+                for i in range(len(data))}
+        for patch in ('Uncap FPS++', '60 FPS++', '90 FPS++', 'Skip Intro'):
+            for offset, data in compile_patches(XML, [patch], '01.09', SEGMENTS):
+                self.assertFalse(skip & set(range(offset, offset+len(data))), patch)
 
 
 if __name__ == '__main__':

@@ -137,6 +137,8 @@ With the game in another folder:
 
 Some stutter on the first start is normal: the game is preparing its shaders.
 
+The launcher's **Skip the online/offline choice** switch (on by default) makes the title screen go straight to the main menu, offline, without the PLAY ONLINE / PLAY OFFLINE dialog (the port has no PSN). Untick it to get the dialog back; with `run.bat`, set `BB_SKIP_NETWORK_CHOICE=0`.
+
 ## 5. In game
 
 - **Ins** on the keyboard, or **L3 + R3** on the controller, opens the menu.
@@ -146,6 +148,7 @@ Some stutter on the first start is normal: the game is preparing its shaders.
 - **Sub-pixel jitter**: it must stay enabled, otherwise DLSS works poorly.
 - **F11** or **Shift+Tab** shows the performance HUD.
 - The choices are saved to `bbport.ini` when the menu closes.
+- **Quit game** (next to **Close**) leaves the game from the pad too: press it twice, the first press asks "Press again to quit", moving away cancels it.
 
 If the image shimmers with DLSS, try the **DLSS: invert jitter sign** checkbox. If the problem
 remains, go back to FSR 3.1 from the same menu.

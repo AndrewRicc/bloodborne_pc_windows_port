@@ -255,7 +255,12 @@ void UpdateSystemTelemetry() {
 #endif
 }
 
+// bbport: file scope, cleared in SetOpen: a function-local flag survived closing the menu while
+// armed, so after reopening a single press could quit.
+static bool quit_armed = false;
+
 void SetOpen(bool value) {
+    quit_armed = false;
     if (menu_open.load() == value) {
         return;
     }
@@ -610,7 +615,23 @@ void Menu() {
     if (ImGui::Button(T(Close))) {
         keep_open = false;
     }
+    // bbport: leaving the game from the pad (this menu opens with L3+R3). A second press
+    // confirms; the window thread then closes like the window's own close button.
     ImGui::SameLine();
+    // bbport: fixed ID ("###"): the label changes when armed, and a label-derived ID would lose
+    // the pad's focus between the two presses.
+    if (ImGui::Button((std::string(quit_armed ? T(QuitConfirm) : T(QuitGame)) + "###quit_game").c_str())) {
+        if (quit_armed) {
+            BbSettings::Save();
+            SDL_Event quit{};
+            quit.type = SDL_EVENT_QUIT;
+            SDL_PushEvent(&quit);
+        }
+        quit_armed = !quit_armed;
+    }
+    if (quit_armed && !ImGui::IsItemFocused() && !ImGui::IsItemHovered()) {
+        quit_armed = false;
+    }
     ImGui::TextDisabled("%s", T(SavedIn));
     ImGui::End();
     if (!keep_open) {

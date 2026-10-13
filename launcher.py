@@ -376,6 +376,7 @@ class BloodborneLauncher(tk.Tk):
         self.feat_fps_patch = tk.BooleanVar(value=self.settings.get("feat_fps_patch", True))
         self.feat_mods = tk.BooleanVar(value=self.settings.get("mods", True))
         self.feat_res_scaling = tk.BooleanVar(value=self.settings.get("feat_res_scaling", True))
+        self.feat_skip_network = tk.BooleanVar(value=self.settings.get("skip_network_choice", True))
 
         grid_f = ttk.Frame(feat_card, style="Card.TFrame")
         grid_f.pack(fill="x")
@@ -398,6 +399,8 @@ class BloodborneLauncher(tk.Tk):
         cb_res = ttk.Checkbutton(grid_f, text="Resolution scaling", variable=self.feat_res_scaling,
                                  style="Card.TCheckbutton", command=self.update_res_scaling_state)
         cb_res.grid(row=1, column=1, sticky="w", pady=2, padx=(0, 15))
+        ttk.Checkbutton(grid_f, text="Skip the online/offline choice", variable=self.feat_skip_network,
+                        style="Card.TCheckbutton").grid(row=1, column=2, sticky="w", pady=2)
 
         # Row 2 (Popular XML Patches)
         ttk.Checkbutton(grid_f, text="Skip Intro & Logos", variable=self.feat_skip_intro,
@@ -467,6 +470,7 @@ class BloodborneLauncher(tk.Tk):
         self.feat_overlay.set(False)
         self.feat_hud.set(False)
         self.feat_fps_patch.set(False)
+        self.feat_skip_network.set(False)
         self.feat_mods.set(False)
         self.feat_res_scaling.set(False)
         self.fps_var.set("30")
@@ -483,6 +487,7 @@ class BloodborneLauncher(tk.Tk):
         self.feat_overlay.set(True)
         self.feat_hud.set(True)
         self.feat_fps_patch.set(True)
+        self.feat_skip_network.set(True)
         self.feat_mods.set(True)
         self.feat_res_scaling.set(True)
         self.fps_var.set("uncap")
@@ -929,6 +934,7 @@ class BloodborneLauncher(tk.Tk):
             "feat_hud": self.feat_hud.get(),
             "feat_fps_patch": self.feat_fps_patch.get(),
             "feat_res_scaling": self.feat_res_scaling.get(),
+            "skip_network_choice": self.feat_skip_network.get(),
             "window_mode": self.window_mode_var.get(),
             "fullscreen": self.window_mode_var.get() == "Fullscreen",
             "enabled_patches": sorted(list(self.enabled_patches)),
@@ -1272,6 +1278,7 @@ class BloodborneLauncher(tk.Tk):
         env["BB_GAME_DIR"] = str(game_dir)
         env["BB_FPS"] = self.fps_var.get()
         env["BB_MODS_ENABLED"] = "1" if self.feat_mods.get() else "0"
+        env["BB_SKIP_NETWORK_CHOICE"] = "1" if self.feat_skip_network.get() else "0"
 
         # Upscaler (FSR)
         if not self.feat_upscaler.get():

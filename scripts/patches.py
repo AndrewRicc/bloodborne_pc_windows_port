@@ -72,6 +72,15 @@ def intel_tonemap_fix(env=os.environ, cpuinfo='/proc/cpuinfo'):
 MODEL_LOD={'-2':'Model LOD -2 (Highest)','1':'Model LOD 1 (Lower)','2':'Model LOD 2 (Lowest)'}
 
 
+# The title's PLAY ONLINE / PLAY OFFLINE dialog: the port has no PSN, the game goes straight to the
+# main menu offline. On by default (the launcher's switch); BB_SKIP_NETWORK_CHOICE=0 shows it.
+SKIP_NETWORK_CHOICE='Skip Online/Offline Choice'
+
+
+def skip_network_choice(env=os.environ):
+    return env.get('BB_SKIP_NETWORK_CHOICE','1')!='0'
+
+
 def validate_patch_requirements(names, game):
     if 'Restore Debug Camera' in names and 'Enemy Control' in names:
         raise ValueError('Restore Debug Camera conflicts with Enemy Control; enable only one')
@@ -304,6 +313,8 @@ def main():
     raw_names += [n for n in effect_patches(read_settings(a.settings)) if n not in raw_names]
     if intel_tonemap_fix() and INTEL_TONEMAP not in raw_names:
         raw_names.append(INTEL_TONEMAP)
+    if skip_network_choice() and SKIP_NETWORK_CHOICE not in raw_names:
+        raw_names.append(SKIP_NETWORK_CHOICE)
     names = []
     for n in raw_names:
         if n not in names:
