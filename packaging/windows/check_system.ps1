@@ -44,7 +44,9 @@ try {
 Add OK 'Upscalers: FSR 3.1, FSR 4 and TAA are included'
 if ($HasDlss -and $rtx) { Add OK 'DLSS: included, NVIDIA RTX card found' }
 elseif ($HasDlss) { Add WARN 'DLSS: included, but it needs an NVIDIA RTX card' }
-else { Add WARN 'DLSS: not part of this package (build the port from source to get it)' }
+elseif ($rtx) { Add OK 'DLSS: NVIDIA RTX card found, it can be built on this PC (option later in this wizard)' }
+else { Add WARN 'DLSS: needs an NVIDIA RTX card, not available on this PC' }
+if ($rtx) { $lines.Add('RTX|1') }
 
 # Python runs the launcher and prepares the game files at every start.
 $python = $null

@@ -1,8 +1,10 @@
 # Smoke test of the Windows installer: installs it silently into a temporary folder, checks what
 # it installed and what it must never contain, starts nothing of the game, and uninstalls it.
-# Usage:  powershell -ExecutionPolicy Bypass -File scripts\windows\test_installer.ps1 [-Setup dist\bbport-setup-x.exe]
+# Usage:  powershell -ExecutionPolicy Bypass -File scripts\windows\test_installer.ps1 [-Setup dist\bbport-setup-x.exe] [-BuildDlss]
 # Without -Setup it takes the newest installer in dist\. Exit code 0 when everything is right.
-param([string]$Setup = '')
+#   -BuildDlss  also builds DLSS in the installed copy, as build_dlss.bat does on a user's PC:
+#               downloads NVIDIA's SDK files (63 MB) and needs the Microsoft C++ compiler.
+param([string]$Setup = '', [switch]$BuildDlss)
 $ErrorActionPreference = 'Continue'
 $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 if (-not $Setup) { $Setup = (Get-ChildItem (Join-Path $repo 'dist\bbport-setup-*.exe') | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName }
@@ -27,7 +29,9 @@ if ($install.ExitCode -ne 0 -and (Test-Path "$target.log")) { Get-Content "$targ
 
 foreach ($file in 'Bloodborne.exe', 'run.bat', 'launch_gui.bat', 'launcher.py', 'LICENSE', 'SOURCE.txt', 'README_RELEASE.txt',
                   'out\bbport.exe', 'out\bb-gpu-capabilities.exe', 'scripts\prepare.py', 'scripts\patches.py',
-                  'scripts\windows\make_icon.ps1', 'patches\Bloodborne.xml', 'fsr4_shaders\rcas.spv', 'unins000.exe') {
+                  'scripts\windows\make_icon.ps1', 'patches\Bloodborne.xml', 'fsr4_shaders\rcas.spv', 'unins000.exe',
+                  'build_dlss.bat', 'scripts\windows\build_dlss.ps1', 'gpu\dlss\bbdlss.cpp', 'gpu\dlss\build_bbdlss.bat',
+                  'gpu\dlss\LICENSE.txt', 'gpu\dlss\vk_include\vulkan\vulkan.h', 'gpu\dlss\vk_include\vk_video\vulkan_video_codecs_common.h') {
     Check "installed: $file" (Test-Path (Join-Path $target $file))
 }
 Check 'the saves of the earlier installation are imported' (Test-Path (Join-Path $target 'user\savedata\1\CUSA00207\SPRJ0005\userdata0000'))
@@ -41,9 +45,15 @@ $found | ForEach-Object { Write-Host "  $($_.FullName)" -ForegroundColor Red }
 # user\ holds only the saves imported above: the package itself ships none.
 $shipped = @(Get-ChildItem "$target\user" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne 'userdata0000' })
 Check 'no game file, icon, save or personal setting in the package' ($found.Count -eq 0 -and $shipped.Count -eq 0)
-$nvidia = @(Get-ChildItem $target -Recurse -File -Include 'nvngx*', 'bbdlss*' -ErrorAction SilentlyContinue)
+$nvidia = @(Get-ChildItem $target -Recurse -File -Include 'nvngx*', 'nvsdk*', 'bbdlss.dll', '*.lib' -ErrorAction SilentlyContinue)
 if ($Setup -match '-dlss') { Write-Host "[NOTE] DLSS package: $($nvidia.Count) NVIDIA file(s) inside, keep it private" -ForegroundColor Yellow }
 else { Check 'no NVIDIA DLSS file in the package' ($nvidia.Count -eq 0) }
+
+if ($BuildDlss) {
+    # What a user with an NVIDIA RTX card gets from build_dlss.bat; -AnyGpu because test machines have none.
+    & powershell -NoProfile -ExecutionPolicy Bypass -File "$target\scripts\windows\build_dlss.ps1" -Yes -AnyGpu | Out-Host
+    Check 'DLSS builds in the installed copy' ($LASTEXITCODE -eq 0 -and (Test-Path "$target\out\bbdlss.dll") -and (Test-Path "$target\out\nvngx_dlss.dll"))
+}
 
 if (Test-Path "$target\unins000.exe") {
     $remove = Start-Process "$target\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru -Wait
@@ -51,6 +61,7 @@ if (Test-Path "$target\unins000.exe") {
     Check 'the uninstaller finishes without error' ($remove.ExitCode -eq 0)
     Check 'the uninstaller keeps the saves' (Test-Path (Join-Path $target 'user\savedata\1\CUSA00207\SPRJ0005\userdata0000'))
     Check 'the uninstaller removes the port' (-not (Test-Path "$target\out\bbport.exe") -and -not (Test-Path "$target\Bloodborne.exe"))
+    Check 'the uninstaller removes the DLSS files' (-not (Test-Path "$target\modules") -and -not (Test-Path "$target\out\bbdlss.dll"))
 }
 if (Test-Path $target) { Remove-Item -Recurse -Force $target -ErrorAction SilentlyContinue }
 Remove-Item "$target.log" -ErrorAction SilentlyContinue

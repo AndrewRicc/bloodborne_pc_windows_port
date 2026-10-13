@@ -24,8 +24,11 @@ Python 3.10 or newer (with tkinter).
 Upscalers
 ---------
 FSR 3.1, FSR 4 (INT8) and TAA are included. FSR 4.1.1 cannot be used on Windows today.
-DLSS is only present when this package was built with it; a package without it shows DLSS
-greyed out in the menu. To get DLSS, build the port from source (see GUIDE.md in the repository).
+DLSS (NVIDIA RTX cards) is not in this package: it is built on your PC. Tick the option in the
+installer, or run build_dlss.bat in this folder at any time. It downloads NVIDIA's SDK files
+(63 MB, from github.com/NVIDIA/DLSS, under NVIDIA's own licence) and compiles the port's small
+bridge; that needs the Microsoft C++ compiler (Visual Studio Build Tools, about 7 GB), which the
+script offers to install when it is missing. Until then DLSS is greyed out in the menu.
 
 Your files
 ----------
@@ -44,4 +47,6 @@ Source code and licences
 The port is free software under the GNU GPL, version 2 or later (LICENSE). SOURCE.txt names the
 repository and the exact commit this package was built from. The FSR 4 shaders are under AMD's
 MIT licence (fsr4_shaders\LICENSE-FSR4-v07.txt). The DLLs in out\ come from the MSYS2 MinGW-w64
-packages (FFmpeg, SDL3, Vulkan loader and others) under their own free licences.
+packages (FFmpeg, SDL3, Vulkan loader and others) under their own free licences. The DLSS bridge
+in gpu\dlss is a separate library under the MIT licence (gpu\dlss\LICENSE.txt); the headers in
+gpu\dlss\vk_include are Khronos' Vulkan headers (Apache 2.0 or MIT).

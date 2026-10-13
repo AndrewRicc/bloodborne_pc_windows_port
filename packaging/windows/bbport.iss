@@ -41,6 +41,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Shortcuts:"
+#if HasDlss == "0"
+; Nothing of NVIDIA is in this package: DLSS is built on the user's PC by build_dlss.ps1.
+Name: "dlss"; Description: "Build &DLSS on this PC: downloads NVIDIA's SDK files (63 MB) and, if missing, the Microsoft C++ compiler (about 7 GB)"; GroupDescription: "NVIDIA DLSS (can also be done later with build_dlss.bat):"; Flags: unchecked; Check: HasRtx
+#endif
 
 [Files]
 Source: "{#Stage}\*"; DestDir: "{app}"; Excludes: "\scripts\windows\make_icon.ps1"; Flags: recursesubdirs createallsubdirs ignoreversion
@@ -54,12 +58,18 @@ Name: "{group}\Uninstall Bloodborne PC Port"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\Bloodborne PC Port"; Filename: "{app}\Bloodborne.exe"; WorkingDir: "{app}"; IconFilename: "{code:ShortcutIcon}"; Tasks: desktopicon
 
 [Run]
+#if HasDlss == "0"
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\windows\build_dlss.ps1"" -Yes -Pause"; WorkingDir: "{app}"; StatusMsg: "Building DLSS: see the console window..."; Tasks: dlss; Flags: skipifsilent
+#endif
 Filename: "{app}\Bloodborne.exe"; Description: "Open the launcher now"; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 ; Files the port makes while running. out\ holds files prepared from the user's game copy.
 ; Saves (user\) and settings (bbport.ini, launcher_settings.json) are left in place.
 Type: filesandordirs; Name: "{app}\out"
+; NVIDIA's SDK files downloaded by build_dlss.ps1.
+Type: filesandordirs; Name: "{app}\modules\dlss-sdk"
+Type: dirifempty; Name: "{app}\modules"
 Type: filesandordirs; Name: "{app}\scripts\__pycache__"
 Type: files; Name: "{app}\bloodborne.ico"
 Type: files; Name: "{app}\python_path.txt"
@@ -81,7 +91,7 @@ var
   SavesText, SavesLabel: TNewStaticText;
   CheckDone: Boolean;
   MissingCount: Integer;
-  PythonMissing: Boolean;
+  PythonMissing, RtxFound: Boolean;
   PythonPath, GameDir, SavesDir, SavesResult: String;
 
 function PowerShellExe: String;
@@ -99,6 +109,7 @@ begin
   WizardForm.Refresh;
   MissingCount := 0;
   PythonMissing := False;
+  RtxFound := False;
   PythonPath := '';
   ExtractTemporaryFile('check_system.ps1');
   Script := ExpandConstant('{tmp}\check_system.ps1');
@@ -115,6 +126,8 @@ begin
       Text := Copy(Lines[I], Bar + 1, Length(Lines[I]));
       if State = 'PYTHON' then
         PythonPath := Text
+      else if State = 'RTX' then
+        RtxFound := True
       else begin
         if State = 'MISSING' then begin
           MissingCount := MissingCount + 1;
@@ -157,6 +170,12 @@ begin
     SuppressibleMsgBox('winget could not be started. Install Python 3.10 or newer from python.org with the default options, then click "Check again".',
            mbError, MB_OK, IDOK);
   RunCheck;
+end;
+
+// The DLSS task is offered only on a PC with an NVIDIA RTX card (found by the system check).
+function HasRtx: Boolean;
+begin
+  Result := RtxFound;
 end;
 
 function StripGamePath(Path: String): String;

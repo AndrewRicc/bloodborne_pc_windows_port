@@ -2,9 +2,11 @@
 # out\ (run setup.bat first). The installer never contains game files, the game's icon or files
 # prepared from the game: only the port, its DLLs, the FSR 4 shaders and the launcher.
 # Usage:  powershell -ExecutionPolicy Bypass -File scripts\windows\make_installer.ps1 [-WithDlss] [-Version x]
-#   -WithDlss  also packs bbdlss.dll and nvngx_dlss.dll. NVIDIA's SDK licence does not allow using
-#              the SDK in a way that subjects it to an open source licence, and the port is GPL:
-#              keep such a package private, do not publish it.
+# DLSS: the installer carries the bridge's source and offers to build it on the user's PC
+# (scripts\windows\build_dlss.ps1); it carries nothing of NVIDIA.
+#   -WithDlss  packs the built bbdlss.dll and nvngx_dlss.dll instead. NVIDIA's SDK licence does not
+#              allow using the SDK in a way that subjects it to an open source licence, and the port
+#              is GPL: keep such a package private, do not publish it.
 #   -Version   version text in the file name and in Windows' program list
 #              (default: date and commit, e.g. 2026.10.12-36ae776)
 # Needs Inno Setup 6 (winget install --id JRSoftware.InnoSetup -e) and MSYS2 (for Bloodborne.exe).
@@ -40,7 +42,15 @@ New-Item -ItemType Directory -Force "$stage\out", "$stage\scripts\windows", "$st
 Copy-Item 'run.bat', 'launch_gui.bat', 'launcher.py', 'LICENSE', 'README.md', 'CHANGES.md' $stage
 Copy-Item 'packaging\windows\README_RELEASE.txt' $stage
 Copy-Item 'scripts\*.py' "$stage\scripts"
-Copy-Item 'scripts\windows\make_icon.ps1' "$stage\scripts\windows"
+Copy-Item 'scripts\windows\make_icon.ps1', 'scripts\windows\build_dlss.ps1' "$stage\scripts\windows"
+# DLSS is built on the user's PC (build_dlss.bat): the package carries the bridge's source and
+# the Vulkan C headers it needs, never NVIDIA's SDK or a built DLL.
+Copy-Item 'packaging\windows\build_dlss.bat' $stage
+New-Item -ItemType Directory -Force "$stage\gpu\dlss\vk_include\vulkan", "$stage\gpu\dlss\vk_include\vk_video" | Out-Null
+Copy-Item 'gpu\dlss\bbdlss.cpp', 'gpu\dlss\bbdlss.h', 'gpu\dlss\build_bbdlss.bat', 'gpu\dlss\LICENSE.txt' "$stage\gpu\dlss"
+if (-not (Test-Path "$Msys\mingw64\include\vulkan\vulkan.h")) { Fail "the Vulkan headers are missing in $Msys\mingw64\include: run setup.bat first" }
+Copy-Item "$Msys\mingw64\include\vulkan\*.h" "$stage\gpu\dlss\vk_include\vulkan"
+Copy-Item "$Msys\mingw64\include\vk_video\*.h" "$stage\gpu\dlss\vk_include\vk_video"
 Copy-Item 'patches\Bloodborne.xml' "$stage\patches"
 Copy-Item 'fsr4_shaders' $stage -Recurse
 # out\: only the port's own programs and DLLs. Everything else in out\ is made at run time, part
@@ -71,7 +81,7 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path "$stage\Bloodborne.exe")) { Fail 'bu
 Step 'Checking that nothing of the game is in the package'
 $forbidden = 'eboot*', 'boot*.bin', 'entry.bin', 'content.bin', 'patches.bin', '*.elf', '*.sfo', 'icon0.*', '*.ico',
              '*.pkg', 'analysis.json', 'link.json', 'libc-link.json', 'launcher_settings.json', 'bbport.ini', '*.log'
-if (-not $WithDlss) { $forbidden += 'nvngx*', 'bbdlss*', 'nvsdk*' }
+if (-not $WithDlss) { $forbidden += 'nvngx*', 'bbdlss.dll', 'nvsdk*', '*.lib' }
 $bad = Get-ChildItem $stage -Recurse -File -Include $forbidden
 if ($bad) { $bad | ForEach-Object { Write-Host "  $($_.FullName)" -ForegroundColor Red }; Fail 'files that must not be distributed are in the stage folder' }
 if (Test-Path "$stage\user") { Fail 'the stage folder contains save files' }

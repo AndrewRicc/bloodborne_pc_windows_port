@@ -178,7 +178,7 @@ the new installation are moved to `user\savedata_backup_<date>_<time>`, never ov
 | Error `429` while installing the libraries | The MSYS2 server is busy: run `setup.bat` again after a few minutes. |
 | `cannot open output file ... bbport.exe` | The game is running: close it and run `setup.bat` again. |
 | Python is installed but "cannot find a python.exe" | Close PowerShell, reopen it and run `setup.bat` again. |
-| DLSS greyed out in the menu | You need an RTX card with a recent driver. Check that `out` contains `bbdlss.dll` and `nvngx_dlss.dll`; if they are missing run `setup.bat` again. |
+| DLSS greyed out in the menu | You need an RTX card with a recent driver. Check that `out` contains `bbdlss.dll` and `nvngx_dlss.dll`; if they are missing run `setup.bat` again (built from source) or `build_dlss.bat` (installed with the installer). |
 | "FSR 4 (INT8)" fails with `missing fsr4_shaders/...` | The FSR 4 shaders are missing: run `setup.bat` again, it downloads them (about 45 MB). |
 | "FSR 4.1.1 (INT8)" greyed out, "not supported by the GPU" | Expected on Windows, even with a recent AMD GPU: see the upscaler notes below. |
 | Orange text "DLSS unavailable: ..." | The game switched to FSR 3.1 by itself; the text after the colon gives the reason. |
@@ -231,17 +231,27 @@ What the installer contains, and what it never contains:
 | `bbport.exe`, its DLLs, the launcher and its scripts | Any game file |
 | The FSR 4 shaders (AMD, MIT licence) | The game's icon: it is made on each PC from that user's own game copy |
 | `LICENSE` (GPL) and `SOURCE.txt` with the repository and commit | Files prepared from the game (`out\boot*.bin`, `eboot.elf`), saves, settings |
-| | NVIDIA DLSS files, unless you ask for them |
+| The DLSS bridge's source (`gpu\dlss`, MIT) and the Vulkan C headers it needs | NVIDIA DLSS files, unless you ask for them |
 
 The script refuses to finish if it finds one of the files on the right in the staging folder.
 
 **Commit and push before building a package you publish.** The port is GPL: who receives the
 installer must be able to get the exact source, and `SOURCE.txt` names the commit it was built from.
 
-**DLSS.** By default the installer has no DLSS: NVIDIA's SDK licence does not allow using the SDK
-in a way that subjects it to an open source licence, and the port is GPL. `-WithDlss` packs
-`bbdlss.dll` and `nvngx_dlss.dll` anyway; keep such a package private. Anyone can still get DLSS
-by building from source with `setup.bat`.
+**DLSS.** The installer has nothing of NVIDIA in it: NVIDIA's SDK licence does not allow using the
+SDK in a way that subjects it to an open source licence, and the port is GPL. DLSS is built on the
+user's PC instead, by `scripts\windows\build_dlss.ps1`:
+
+- the installer offers it as an option, only on a PC with an NVIDIA RTX card; `build_dlss.bat` in
+  the installation folder does the same at any later time;
+- it downloads the SDK files the bridge needs (headers, `nvsdk_ngx_s.lib`, `nvngx_dlss.dll`:
+  63 MB) from github.com/NVIDIA/DLSS into `modules\dlss-sdk`, and checks the two binaries against
+  known checksums;
+- it compiles `gpu\dlss\bbdlss.cpp` with the Microsoft C++ compiler, which it offers to install
+  (Visual Studio Build Tools, about 7 GB) when missing;
+- an update of the port keeps the built `out\bbdlss.dll`; uninstalling removes it and the SDK files.
+
+`-WithDlss` packs the built `bbdlss.dll` and `nvngx_dlss.dll` instead; keep such a package private.
 
 Unattended installation, for testing:
 
@@ -294,8 +304,9 @@ git push origin v0.3.0
 
 Use the name of your own remote in place of `origin` if it is called differently.
 
-Installers built there never contain DLSS: the machines have no NVIDIA card and the workflow asks
-for a build without it. On a fork, GitHub Actions must be enabled once in the repository's
+Installers built there never contain DLSS files. The installer test does build DLSS in the
+installed copy (`test_installer.ps1 -BuildDlss`), to prove that `build_dlss.bat` works on a user's
+PC; what it builds is thrown away with the test folder. On a fork, GitHub Actions must be enabled once in the repository's
 Actions tab.
 
 ## Licences

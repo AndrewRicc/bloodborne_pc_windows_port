@@ -44,7 +44,7 @@ support.
 | Desktop shortcut | None | Optional, with the icon taken from your own game copy |
 | Saves from an older installation | Copied by hand | Imported by the installer, or with **Import saves...** in the launcher |
 | In-game menu language | English or Russian | 12 languages: English, Russian, Italian, Spanish, French, German, Portuguese, Polish, Turkish, Chinese, Japanese, Korean |
-| Upscalers | FSR 3.1, FSR 4, TAA | The same, plus NVIDIA DLSS when built from source |
+| Upscalers | FSR 3.1, FSR 4, TAA | The same, plus NVIDIA DLSS, built on your PC |
 | Building from source | Install the tools yourself, then `build.bat` | `setup.bat` checks every requirement, installs what is missing and builds |
 | Quality checks | | Automatic build, tests and installer test on every change (GitHub Actions) |
 
@@ -83,9 +83,12 @@ Windows may warn that the installer comes from an unknown publisher: it is not s
 The port already built, its DLLs, the launcher and the FSR 4 shaders. It never contains game
 files, the game's icon, saves or settings, and the build refuses to finish if it finds one.
 
-**DLSS is not in the installer.** NVIDIA's SDK licence does not allow using the SDK in a way that
-subjects it to an open source licence, and the port is GPL. FSR 3.1, FSR 4 and TAA work on every
-recent card, NVIDIA included. To get DLSS, build from source: see below.
+**DLSS is built on your PC, not shipped.** The installer carries nothing of NVIDIA: on a PC with
+an NVIDIA RTX card it offers to build DLSS, and `build_dlss.bat` in the installation folder does
+the same later. It downloads NVIDIA's SDK files (63 MB) from NVIDIA's own repository and compiles
+the small bridge; that needs the Microsoft C++ compiler (Visual Studio Build Tools, about 7 GB,
+installed on request if missing). FSR 3.1, FSR 4 and TAA need none of this and work on every
+recent card, NVIDIA included.
 
 Uninstalling (Windows Settings > Apps) removes the port and leaves your saves and settings.
 
@@ -93,7 +96,7 @@ Uninstalling (Windows Settings > Apps) removes the port and leaves your saves an
 
 ## Build from source
 
-For developers, and for anyone who wants DLSS:
+For developers:
 
 ```powershell
 git clone -c core.longpaths=true https://github.com/AndrewRicc/bloodborne_pc_windows_port.git bloodborne

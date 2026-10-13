@@ -2,7 +2,8 @@
 #   - every push to master and every pull request: build + tests + installer (kept as an artifact);
 #   - a tag "v<version>" (git tag v0.3.0 && git push origin v0.3.0): the same, then the installer is
 #     published as a GitHub release.
-# The installer never contains game files and, built here, never contains NVIDIA DLSS files.
+# The installer never contains game files or NVIDIA DLSS files: DLSS is built on the user's PC,
+# and the installer test proves that this build works.
 name: Windows installer
 
 on:
@@ -74,8 +75,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Test the installer
+        # -BuildDlss: builds DLSS in the installed copy as a user would (NVIDIA's SDK files are
+        # downloaded into the test folder and deleted with it; the runner has Visual Studio).
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\test_installer.ps1
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\test_installer.ps1 -BuildDlss
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - uses: actions/upload-artifact@v4
@@ -101,7 +104,7 @@ jobs:
             '',
             'It contains the port only: no game files. You need your own copy of Bloodborne (CUSA03173, version 1.09) dumped from your PS4, and Python 3.10 or newer.',
             '',
-            'FSR 3.1, FSR 4 and TAA are included. DLSS is not part of this installer: build the port from source (GUIDE.md) to get it.'
+            'FSR 3.1, FSR 4 and TAA are included. DLSS is not shipped: on a PC with an NVIDIA RTX card the installer offers to build it there (it downloads the SDK files from NVIDIA and needs the Microsoft C++ compiler), and build_dlss.bat in the installation folder does the same later.'
           )
           gh release view $tag --json tagName,isDraft
           if ($LASTEXITCODE -eq 0) {
