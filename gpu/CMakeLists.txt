@@ -240,6 +240,9 @@ target_include_directories(motion-history-test PRIVATE ..)
 add_executable(camera-projection-test EXCLUDE_FROM_ALL ../tests/test_camera_projection.cpp)
 target_compile_options(camera-projection-test PRIVATE -UNDEBUG -Wall -Wextra -Werror)
 target_include_directories(camera-projection-test PRIVATE ..)
+add_executable(display-choice-test EXCLUDE_FROM_ALL ../tests/test_display_choice.cpp)
+target_compile_options(display-choice-test PRIVATE -UNDEBUG -Wall -Wextra -Werror)
+target_include_directories(display-choice-test PRIVATE ..)
 add_executable(motion-shader-test EXCLUDE_FROM_ALL ../tests/test_motion_shaders.cpp ../tests/test_gpu_runtime_stubs.cpp)
 target_include_directories(motion-shader-test PRIVATE shim shadps4 third_party/gcn/include)
 target_link_libraries(motion-shader-test PRIVATE bbgpu)
@@ -302,6 +305,6 @@ set_target_properties(bbport PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURREN
 
 add_executable(bb-gpu-capabilities ../tools/gpu_capabilities.c)
 target_include_directories(bb-gpu-capabilities PRIVATE .. ../src)
-target_link_libraries(bb-gpu-capabilities PRIVATE Vulkan::Vulkan)
+target_link_libraries(bb-gpu-capabilities PRIVATE Vulkan::Vulkan PkgConfig::SDL3)
 set_target_properties(bb-gpu-capabilities PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../out")
 

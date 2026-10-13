@@ -1,9 +1,13 @@
 // bbport: SDL3 window for the Vulkan swapchain (X11 or Wayland).
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
+#include <vector>
 #include <SDL3/SDL.h>
 #include "common/assert.h"
 #include "common/logging/log.h"
+#include "display_choice.h"
 #include "sdl_window.h"
 #include "bbport_overlay.h"
 #include "bbport_settings.h"
@@ -13,6 +17,44 @@
 #endif
 
 namespace Frontend {
+
+// bbport: the monitor the window (and fullscreen) goes to. BB_DISPLAY: its number in the order
+// logged below (1, 2, ...) or a part of its name; without it, or when nothing matches, SDL's
+// primary display. Computed once (the monitors are logged once); safe from any thread. A
+// failure (SDL video not up yet: no primary display) is not remembered.
+SDL_DisplayID ChosenDisplay() {
+    static std::mutex mutex;
+    static SDL_DisplayID remembered = 0;
+    std::scoped_lock lock{mutex};
+    if (remembered) {
+        return remembered;
+    }
+    const SDL_DisplayID primary = SDL_GetPrimaryDisplay();
+    if (!primary) {
+        return 0;
+    }
+    const char* wanted = std::getenv("BB_DISPLAY");
+    int count = 0;
+    SDL_DisplayID* ids = SDL_GetDisplays(&count);
+    std::vector<const char*> names;
+    for (int i = 0; i < count; ++i) {
+        names.push_back(SDL_GetDisplayName(ids[i]));
+    }
+    const int index = ChooseDisplayIndex(wanted, names);
+    const SDL_DisplayID display = index >= 0 ? ids[index] : primary;
+    for (int i = 0; i < count; ++i) {
+        const SDL_DisplayMode* mode = SDL_GetDesktopDisplayMode(ids[i]);
+        std::printf("Display %d: %s %dx%d%s%s\n", i + 1, names[i] ? names[i] : "?",
+                    mode ? mode->w : 0, mode ? mode->h : 0, ids[i] == primary ? " (primary)" : "",
+                    ids[i] == display ? " <- the game's (BB_DISPLAY)" : "");
+    }
+    if (wanted && *wanted && index < 0) {
+        std::printf("Display: BB_DISPLAY=%s matches none, the primary one is used\n", wanted);
+    }
+    SDL_free(ids);
+    remembered = display;
+    return display;
+}
 
 WindowSDL::WindowSDL(s32 width_, s32 height_, const char* title) : width{width_}, height{height_} {
     // Gamepads are sampled by runtime_pad.c; their events are pumped here with the window's.
@@ -51,8 +93,9 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, const char* title) : width{width_}
 
     SDL_PropertiesID props = SDL_CreateProperties();
     SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, title);
-    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, SDL_WINDOWPOS_CENTERED);
-    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED);
+    const SDL_DisplayID display = ChosenDisplay();
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, SDL_WINDOWPOS_CENTERED_DISPLAY(display));
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED_DISPLAY(display));
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, width_);
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, height_);
     SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
@@ -73,7 +116,8 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, const char* title) : width{width_}
         SDL_SetWindowFullscreen(window, false);
         SDL_SetWindowBordered(window, true);
         SDL_SetWindowSize(window, width_, height_);
-        SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+        SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(display),
+                              SDL_WINDOWPOS_CENTERED_DISPLAY(display));
         SDL_SyncWindow(window);
 
 #if defined(_WIN32)
@@ -94,6 +138,12 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, const char* title) : width{width_}
             int screen_h = GetSystemMetrics(SM_CYSCREEN);
             int pos_x = (screen_w - win_w) / 2;
             int pos_y = (screen_h - win_h) / 2;
+            // bbport: centre on the chosen monitor (BB_DISPLAY), not the primary screen.
+            SDL_Rect bounds{};
+            if (SDL_GetDisplayBounds(display, &bounds)) {
+                pos_x = bounds.x + (bounds.w - win_w) / 2;
+                pos_y = bounds.y + (bounds.h - win_h) / 2;
+            }
 
             SetWindowPos(hwnd, nullptr, pos_x, pos_y, win_w, win_h,
                          SWP_NOZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW);

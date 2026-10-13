@@ -19,6 +19,10 @@ struct WindowSystemInfo {
     WindowSystemType type = WindowSystemType::Headless;
 };
 
+/// The display BB_DISPLAY selects, else SDL's primary (an SDL_DisplayID); valid once SDL video is
+/// initialised, 0 before. Thread-safe.
+u32 ChosenDisplay();
+
 class WindowSDL {
 public:
     WindowSDL(s32 width, s32 height, const char* title);

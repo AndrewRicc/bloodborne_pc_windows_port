@@ -49,6 +49,11 @@ try:
 except Exception:
     bb_guard = None
 
+try:
+    import displays
+except Exception:
+    displays = None
+
 _instance_mutex = []
 
 
@@ -350,6 +355,23 @@ class BloodborneLauncher(tk.Tk):
                                         foreground="#888888")
         self.aniso_desc_lbl.grid(row=2, column=2, columnspan=2, sticky="w", pady=3)
         self.update_aniso_desc()
+
+        # Display (monitor): the list comes from the port's own tool, so the numbers are SDL's
+        # (BB_DISPLAY, read by gpu/shim/window.cpp). "" means the primary monitor.
+        saved_display = str(self.settings.get("display", ""))
+        if displays is not None:
+            self.display_choices = displays.choices(
+                displays.connected(APP_DIR / "out" / "bb-gpu-capabilities.exe"), saved_display)
+        else:
+            self.display_choices = [("", "Primary monitor")]
+        self.display_var = tk.StringVar(value=next(
+            (label for value, label in self.display_choices if value == saved_display),
+            self.display_choices[0][1]))
+        ttk.Label(opts, text="Display:", style="Card.TLabel").grid(row=2, column=4, sticky="w", pady=3)
+        self.display_combo = ttk.Combobox(opts, textvariable=self.display_var,
+                                          values=[label for _, label in self.display_choices],
+                                          state="readonly", width=36)
+        self.display_combo.grid(row=2, column=5, sticky="w", pady=3, padx=(6, 0))
 
         # Features Card
         feat_card = ttk.Frame(main, style="Card.TFrame", padding=12)
@@ -921,6 +943,11 @@ class BloodborneLauncher(tk.Tk):
         except (OSError, ValueError):
             return {}
 
+    def selected_display(self):
+        """The BB_DISPLAY value of the selected drop-down entry ("" = primary monitor)."""
+        label = self.display_var.get()
+        return next((value for value, text in self.display_choices if text == label), "")
+
     def save_settings(self):
         data = {
             "eboot": self.eboot_var.get().strip(),
@@ -937,6 +964,7 @@ class BloodborneLauncher(tk.Tk):
             "skip_network_choice": self.feat_skip_network.get(),
             "window_mode": self.window_mode_var.get(),
             "fullscreen": self.window_mode_var.get() == "Fullscreen",
+            "display": self.selected_display(),
             "enabled_patches": sorted(list(self.enabled_patches)),
         }
         try:
@@ -1109,7 +1137,7 @@ class BloodborneLauncher(tk.Tk):
         eboot_mb = eboot_size / (1024 * 1024)
         details.append(f"[OK] Game executable: eboot.bin ({eboot_mb:.1f} MiB)")
 
-        # 1b. Game Title & Version verification (CUSA03173 1.09)
+        # 1b. Game Title & Version verification (any retail release, 1.09)
         try:
             import sys
             scripts_dir = str(APP_DIR / "scripts")
@@ -1123,12 +1151,12 @@ class BloodborneLauncher(tk.Tk):
                 return False, (
                     f"Game File Verification Failed ({kind}):\n\n"
                     f"{explanation}\n\n"
-                    f"Expected: Bloodborne CUSA03173 with Update 1.09 merged.\n"
+                    f"Expected: a retail release of Bloodborne (any region, The Old Hunters editions too) with update 1.09 merged.\n"
                     f"Why blocked: Upstream port patches and memory hooks rely strictly on the 1.09 executable layout.\n"
                     f"To bypass (not recommended): set environment variable BB_SKIP_GAME_CHECK=1."
                 ), details
             else:
-                details.append("[OK] Game Title & Version: Bloodborne CUSA03173 v1.09 verified")
+                details.append(f"[OK] Game files: Bloodborne 1.09 executable verified")
         except Exception as e:
             details.append(f"[NOTE] Game version check check skipped: {e}")
 
@@ -1318,6 +1346,11 @@ class BloodborneLauncher(tk.Tk):
         win_mode_val = self.window_mode_var.get().lower()
         env["BB_WINDOW_MODE"] = win_mode_val
         env["BB_FULLSCREEN"] = "1" if win_mode_val != "windowed" else "0"
+        display_val = self.selected_display()
+        if display_val:
+            env["BB_DISPLAY"] = display_val
+        else:
+            env.pop("BB_DISPLAY", None)
 
         # Frame ahead queue (smooth frametimes & bound queue latency: 2 = balanced)
         env.setdefault("BB_FRAMES_AHEAD", "2")
@@ -1347,7 +1380,8 @@ class BloodborneLauncher(tk.Tk):
             f"FPSPatch={'on' if self.feat_fps_patch.get() else 'off'}, "
             f"Mods={'on' if self.feat_mods.get() else 'off'}, "
             f"ResScaling={'on' if self.feat_res_scaling.get() else 'off'}, "
-            f"WindowMode={self.window_mode_var.get()}"
+            f"WindowMode={self.window_mode_var.get()}, "
+            f"Display={display_val or 'primary'}"
         )
 
         self.hidden_count = 0

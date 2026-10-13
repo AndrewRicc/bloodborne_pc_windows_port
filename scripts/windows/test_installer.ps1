@@ -28,7 +28,7 @@ Check 'the installer finishes without error' ($install.ExitCode -eq 0)
 if ($install.ExitCode -ne 0 -and (Test-Path "$target.log")) { Get-Content "$target.log" -Tail 30 | Out-Host }
 
 foreach ($file in 'Bloodborne.exe', 'run.bat', 'launch_gui.bat', 'launcher.py', 'LICENSE', 'SOURCE.txt', 'README_RELEASE.txt',
-                  'out\bbport.exe', 'out\bb-gpu-capabilities.exe', 'scripts\prepare.py', 'scripts\patches.py',
+                  'out\bbport.exe', 'out\bb-gpu-capabilities.exe', 'scripts\prepare.py', 'scripts\patches.py', 'scripts\displays.py',
                   'scripts\windows\make_icon.ps1', 'patches\Bloodborne.xml', 'fsr4_shaders\rcas.spv', 'unins000.exe',
                   'build_dlss.bat', 'scripts\windows\build_dlss.ps1', 'gpu\dlss\bbdlss.cpp', 'gpu\dlss\build_bbdlss.bat',
                   'gpu\dlss\LICENSE.txt', 'gpu\dlss\vk_include\vulkan\vulkan.h', 'gpu\dlss\vk_include\vk_video\vulkan_video_codecs_common.h') {
@@ -37,6 +37,9 @@ foreach ($file in 'Bloodborne.exe', 'run.bat', 'launch_gui.bat', 'launcher.py', 
 Check 'the saves of the earlier installation are imported' (Test-Path (Join-Path $target 'user\savedata\1\CUSA00207\SPRJ0005\userdata0000'))
 Check 'the port''s DLLs are installed' (@(Get-ChildItem "$target\out\*.dll" -ErrorAction SilentlyContinue).Count -ge 50)
 Check 'the optimized FSR 4 shaders are installed' (@(Get-ChildItem "$target\fsr4_shaders\opt\*.spv" -ErrorAction SilentlyContinue).Count -gt 0)
+# Only 0xC0000135 (a DLL is missing) fails: a machine without a display may legitimately not list monitors.
+& "$target\out\bb-gpu-capabilities.exe" --displays | Out-Null
+Check 'the installed diagnostic tool starts' ($LASTEXITCODE -ne -1073741515)
 
 # Nothing of the game, no icon made from it, no saves or settings of the person who built it.
 $forbidden = 'eboot*', 'boot*.bin', '*.elf', '*.sfo', 'icon0.*', '*.ico', '*.pkg', 'bbport.ini', 'launcher_settings.json'

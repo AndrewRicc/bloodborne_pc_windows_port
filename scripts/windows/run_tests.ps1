@@ -33,7 +33,7 @@ Result 'launcher.py and scripts compile' ($LASTEXITCODE -eq 0)
 
 Write-Host '== Python tests' -ForegroundColor Cyan
 # The other tests in tests\ drive run.sh or Linux behaviour and do not pass on Windows.
-foreach ($test in 'test_patches', 'test_prepare', 'test_content', 'test_upscaler_assets', 'test_savedata_import', 'test_bb_guard') {
+foreach ($test in 'test_patches', 'test_prepare', 'test_content', 'test_upscaler_assets', 'test_savedata_import', 'test_bb_guard', 'test_game_check', 'test_displays') {
     Push-Location tests
     & $py -m unittest $test 2>&1 | Select-Object -Last 4 | Out-Host
     $ok = $LASTEXITCODE -eq 0
@@ -43,7 +43,7 @@ foreach ($test in 'test_patches', 'test_prepare', 'test_content', 'test_upscaler
 
 Write-Host '== C++ tests' -ForegroundColor Cyan
 # Only the targets that need no Vulkan device (the GitHub runners have none).
-foreach ($test in 'upscaler-support-test', 'shader-user-data-test', 'motion-history-test', 'camera-projection-test', 'motion-shader-test', 'ui-composition-test') {
+foreach ($test in 'upscaler-support-test', 'shader-user-data-test', 'motion-history-test', 'camera-projection-test', 'display-choice-test', 'motion-shader-test', 'ui-composition-test') {
     $ok = (Bash "cmake --build out/gpu --target $test > out/test_$test.log 2>&1") -eq 0
     if (-not $ok) { Get-Content "out\test_$test.log" -Tail 20 | Out-Host }
     else { $ok = (Bash "cd out/gpu && ./$test.exe > ../test_run_$test.log 2>&1; code=`$?; tail -2 ../test_run_$test.log; exit `$code") -eq 0 }

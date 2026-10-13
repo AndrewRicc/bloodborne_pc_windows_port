@@ -2,8 +2,10 @@ Bloodborne PC Port (bbport) - Windows build with multilingual menu
 =================================================================
 
 This package contains the port only. It contains no game files: you need your own copy of
-Bloodborne (European release CUSA03173, updated to 1.09), dumped from your PS4. The folder
-must contain eboot.bin, dvdroot_ps4 and sce_sys.
+Bloodborne (any retail release, any region, The Old Hunters editions included, with update 1.09
+merged in), dumped from your PS4. The folder can have any name; it must contain eboot.bin,
+dvdroot_ps4 and sce_sys. The folder can have any name and stay where it is: you point the
+installer or the launcher at it.
 
 Not affiliated with Sony Interactive Entertainment, FromSoftware, AMD or NVIDIA.
 

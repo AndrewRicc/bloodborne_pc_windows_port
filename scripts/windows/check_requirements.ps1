@@ -87,8 +87,9 @@ if ($Game) {
     $sfo = Join-Path $Game 'sce_sys\param.sfo'
     if ((Test-Path (Join-Path $Game 'eboot.bin')) -and (Test-Path (Join-Path $Game 'dvdroot_ps4')) -and (Test-Path $sfo)) {
         $txt = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($sfo))
-        if ((Split-Path $Game -Leaf) -eq 'CUSA03173' -and $txt -match '01\.09') { Ok "game dump CUSA03173 version 1.09 ($Game)" }
-        else { Missing 'the dump must be CUSA03173 updated to version 1.09' }
+        $id = [regex]::Match($txt, 'CUSA(00900|00207|00208|00299|01363|03179|03173|03014|03023)')
+        if ($id.Success -and $txt -match '01\.09') { Ok "game dump $($id.Value) version 1.09 ($Game)" }
+        else { Missing 'the dump must be a retail release of Bloodborne updated to version 1.09' }
     } else { Missing "eboot.bin, dvdroot_ps4 or sce_sys\param.sfo is missing in $Game" }
 } else { Warn 'game dump not found in modules\game\CUSA03173: copy it there, or run again with -Game "D:\path\CUSA03173"' }
 

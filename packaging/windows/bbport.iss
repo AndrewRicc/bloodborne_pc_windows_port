@@ -276,7 +276,7 @@ begin
   GameText.WordWrap := True;
   GameText.SetBounds(0, 0, GamePage.SurfaceWidth, ScaleY(96));
   GameText.Caption :=
-    'The port needs your own copy of Bloodborne (CUSA03173, version 1.09), dumped from your PS4: the folder ' +
+    'The port needs your own copy of Bloodborne (any retail release, updated to version 1.09), dumped from your PS4: the folder ' +
     'that contains eboot.bin, dvdroot_ps4 and sce_sys. The game is not included and is not copied: the port ' +
     'reads it where it is.' + #13#10#13#10 +
     'Pick the folder, then click Next. You can leave it empty and choose it later in the launcher.';
@@ -326,6 +326,20 @@ begin
   if (CurPageID = CheckPage.ID) and not CheckDone then RunCheck;
 end;
 
+// The retail releases share one 1.09 executable (scripts\game_check.py SUPPORTED_TITLES).
+function IsBloodborneTitle(Sfo: AnsiString): Boolean;
+var
+  Ids: array[0..8] of String;
+  I: Integer;
+begin
+  Ids[0] := 'CUSA00900'; Ids[1] := 'CUSA00207'; Ids[2] := 'CUSA00208'; Ids[3] := 'CUSA00299';
+  Ids[4] := 'CUSA01363'; Ids[5] := 'CUSA03179'; Ids[6] := 'CUSA03173'; Ids[7] := 'CUSA03014';
+  Ids[8] := 'CUSA03023';
+  Result := False;
+  for I := 0 to 8 do
+    if Pos(Ids[I], Sfo) > 0 then Result := True;
+end;
+
 function NextButtonClick(CurPageID: Integer): Boolean;
 var
   Dir: String;
@@ -353,8 +367,8 @@ begin
       Exit;
     end;
     if LoadStringFromFile(Dir + '\sce_sys\param.sfo', Sfo) and
-       ((Pos('CUSA03173', Sfo) = 0) or (Pos('01.09', Sfo) = 0)) then begin
-      if SuppressibleMsgBox('This copy does not look like CUSA03173 version 1.09, the only one the port supports. ' +
+       ((not IsBloodborneTitle(Sfo)) or (Pos('01.09', Sfo) = 0)) then begin
+      if SuppressibleMsgBox('This copy does not look like a retail release of Bloodborne with update 1.09, the only version the port supports. ' +
                 'It will probably not start. Use it anyway?', mbConfirmation, MB_YESNO, IDYES) <> IDYES then begin
         Result := False;
         Exit;

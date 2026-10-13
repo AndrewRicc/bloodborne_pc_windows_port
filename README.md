@@ -16,8 +16,8 @@
 
 ---
 
-A native 64-bit Windows port of the PlayStation 4 executable of *Bloodborne* (CUSA03173, version
-1.09). The game's code runs directly on your CPU, without emulation, and its graphics are
+A native 64-bit Windows port of the PlayStation 4 executable of *Bloodborne* (any retail release, updated to
+version 1.09). The game's code runs directly on your CPU, without emulation, and its graphics are
 translated to Vulkan.
 
 The port itself is the work of [deadinside28](https://github.com/deadinside28/bloodborne_pc)
@@ -26,7 +26,9 @@ The port itself is the work of [deadinside28](https://github.com/deadinside28/bl
 one installer, point it at your game folder, and play. Nothing to compile, no tools to install.
 
 > **No game files or copyrighted assets are included.** You must provide your own decrypted dump
-> of Bloodborne (CUSA03173, version 1.09).
+> of Bloodborne (any retail release, updated to version 1.09). Tested with CUSA03173; the other
+> releases are accepted because their 1.09 executable is the same file, which the port checks by
+> its hash.
 > This project is not affiliated with Sony Interactive Entertainment, FromSoftware, AMD or NVIDIA.
 
 **Status: playable on Windows.** The game boots, loads saves, and runs with audio and gamepad
@@ -40,7 +42,7 @@ support.
 |---|---|---|
 | Getting it | A ZIP to extract, then `launch_gui.bat` | A Windows installer with a guided setup, a Start menu entry and an uninstaller |
 | Checking your PC | By hand | The installer checks Windows, CPU, graphics driver and Python, and can install Python |
-| Game folder | Picked in the launcher | Asked by the installer, and validated (CUSA03173, 1.09) |
+| Game folder | Picked in the launcher | Asked by the installer, and validated (any retail release, 1.09) |
 | Desktop shortcut | None | Optional, with the icon taken from your own game copy |
 | Saves from an older installation | Copied by hand | Imported by the installer, or with **Import saves...** in the launcher |
 | In-game menu language | English or Russian | 12 languages: English, Russian, Italian, Spanish, French, German, Portuguese, Polish, Turkish, Chinese, Japanese, Korean |
@@ -76,7 +78,7 @@ Windows may warn that the installer comes from an unknown publisher: it is not s
 - **Graphics card**: Vulkan 1.3 with current drivers (NVIDIA GeForce GTX 10-series, AMD Radeon
   RX 400-series, Intel Arc A-series, or newer).
 - **Python** 3.10 or newer: the installer finds it, and offers to install it if it is missing.
-- **Game files**: your decrypted `CUSA03173` folder, version 1.09.
+- **Game files**: your decrypted dump of any retail release (any folder name; `modules\game\CUSA03173` is the default location), with update 1.09.
 
 ### What the installer contains
 

@@ -13,7 +13,7 @@ The game is not included: you need your own copy, dumped from a PS4.
 | `Bloodborne.exe` | Starts the launcher without a console window; `setup.bat` builds it and puts a shortcut to it on the desktop |
 | `launch_gui.bat` | Starts the graphical launcher |
 | `run.bat` | Starts the game directly |
-| `modules\game\` | **The game folder (`CUSA03173`) goes here** |
+| `modules\game\` | **The game folder goes here** (default: `CUSA03173`) |
 | `modules\dlss-sdk\` | The NVIDIA DLSS SDK ends up here (`setup.bat` downloads it) |
 | `modules\icon.ico` | Optional: your own icon for `Bloodborne.exe` and the shortcut |
 | `fsr4_shaders\` | The FSR 4 shaders end up here (`setup.bat` downloads them) |
@@ -27,8 +27,11 @@ The game is not included: you need your own copy, dumped from a PS4.
 
 ## What you need
 
-- **The game**: Bloodborne, European release (`CUSA03173`), updated to **1.09**. The folder must
-  contain `eboot.bin`, `dvdroot_ps4` and `sce_sys`.
+- **The game**: any retail release of Bloodborne (any region, The Old Hunters editions included)
+  with update **1.09** merged in. Tested with CUSA03173; the other releases are accepted because
+  their 1.09 executable is the same file, which the port checks by its hash. The folder can have any name and must contain `eboot.bin`,
+  `dvdroot_ps4` and `sce_sys`. `modules\game\CUSA03173` is only the default location: other
+  folders are picked in the launcher or the installer.
 - **PC**: 64-bit Windows 10 or 11, a CPU with AVX2, a graphics card with Vulkan 1.3 and up-to-date
   drivers.
 - **Disk space**: about 15 GB, plus the game.
@@ -57,7 +60,7 @@ Do not download it as a ZIP from GitHub: some components would be missing.
 
 ## 2. Put the game in `modules\game`
 
-Copy the `CUSA03173` folder into `modules\game`, like this:
+Copy your game folder into `modules\game` as `CUSA03173` (the default location), like this:
 
 ```
 bloodborne\modules\game\CUSA03173\eboot.bin
@@ -139,6 +142,10 @@ Some stutter on the first start is normal: the game is preparing its shaders.
 
 The launcher's **Skip the online/offline choice** switch (on by default) makes the title screen go straight to the main menu, offline, without the PLAY ONLINE / PLAY OFFLINE dialog (the port has no PSN). Untick it to get the dialog back; with `run.bat`, set `BB_SKIP_NETWORK_CHOICE=0`.
 
+With several monitors, `BB_DISPLAY` picks the one the game opens on (windowed, borderless or fullscreen): set it to a number in the order the log prints (`Display 1: ...`, `Display 2: ...`) or to part of the monitor's name (a value made only of digits is always read as a number, so a monitor whose name is only digits is chosen by its number), for example `set BB_DISPLAY=2` before `run.bat`. Without it, or when nothing matches, the game opens on the primary monitor.
+
+In the launcher, the **Display** drop-down next to the window settings does this for you: it lists "Primary monitor" and one entry per connected monitor (number, name, size, the primary one marked), taken from `out\bb-gpu-capabilities.exe --displays`, so the numbers are the game's. The choice is saved; if that monitor is unplugged later, the entry reads "(not connected)" and the game opens on the primary monitor.
+
 ## 5. In game
 
 - **Ins** on the keyboard, or **L3 + R3** on the controller, opens the menu.
@@ -186,6 +193,8 @@ the new installation are moved to `user\savedata_backup_<date>_<time>`, never ov
 | "FSR 4.1.1 (INT8)" greyed out, "not supported by the GPU" | Expected on Windows, even with a recent AMD GPU: see the upscaler notes below. |
 | Orange text "DLSS unavailable: ..." | The game switched to FSR 3.1 by itself; the text after the colon gives the reason. |
 | `No eboot.bin in ...` | The game is not in `modules\game\CUSA03173`: copy it there or pass the path to `run.bat`. |
+| The game check says the executable has the 60 fps patch | The `eboot.bin` was patched by another tool: use the clean 1.09 `eboot.bin`. |
+| The game check says some files are damaged | The dump was not extracted correctly: extract it again with another tool. `python scripts\game_check.py <folder>` lists the damaged files. |
 | The game does not start and crashes right away after earlier runs | A `bbport.exe` from an earlier run may still be in memory: check with `Get-Process bbport`; if it cannot be closed, restart the PC. |
 | The game is extremely slow | It is using the integrated graphics: in Settings > System > Display > Graphics add `out\bbport.exe` and choose "High performance". |
 
