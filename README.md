@@ -49,7 +49,7 @@ support.
 | Quality checks | | Automatic build, tests and installer test on every change (GitHub Actions) |
 
 Everything else (the renderer, the runtime, the launcher, the patches) is upstream's work, merged
-here regularly. This fork currently includes upstream up to **v0.4.1** and some later fixes.
+here regularly. This fork currently includes upstream up to **v0.4.2**.
 
 ---
 

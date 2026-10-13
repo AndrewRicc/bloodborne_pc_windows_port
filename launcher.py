@@ -4,7 +4,9 @@
 import json
 import locale
 import os
+import hashlib
 import queue
+import shutil
 import subprocess
 import sys
 import threading
@@ -15,9 +17,10 @@ from pathlib import Path
 from tkinter import ttk, filedialog, messagebox
 
 APP_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(APP_DIR / "scripts"))  # savedata_import (Import saves...)
 RUN_BAT = APP_DIR / "run.bat"
 LOG_FILE = APP_DIR / "launcher.log"
+LOG_DIR = APP_DIR / "logs"
+LOG_KEEP = 20
 SETTINGS_FILE = APP_DIR / "launcher_settings.json"
 PATCHES_XML = APP_DIR / "patches" / "Bloodborne.xml"
 MODULES_GAME = Path("modules/game/CUSA03173")
@@ -38,6 +41,15 @@ ANISO_CHOICES = [
 MAX_LOG_LINES = 5000
 VK_NOISE = "<Warning> vk_instance.cpp"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+# Stale bbport.exe guard: a safety net, never a reason for the launcher not to start.
+try:
+    sys.path.insert(0, str(APP_DIR / "scripts"))
+    import bb_guard
+except Exception:
+    bb_guard = None
+
+_instance_mutex = []
 
 
 def load_xml_patches(xml_path: Path = PATCHES_XML):
@@ -87,6 +99,12 @@ def decode_line(raw: bytes) -> str:
         return raw.decode(locale.getpreferredencoding(False), errors="replace")
 
 
+def shader_cache_dir() -> Path:
+    """user/cache of this install (or of BB_USER_DIR, as run.bat uses it)."""
+    user = Path(os.environ.get("BB_USER_DIR") or "user")
+    return (user if user.is_absolute() else APP_DIR / user) / "cache"
+
+
 def resolve_game_dir(target: str):
     """Return the game folder for an eboot.bin path or a folder path, else None."""
     p = Path(target.strip().strip('"'))
@@ -97,6 +115,16 @@ def resolve_game_dir(target: str):
     return None
 
 
+def running_instances():
+    """bbport.exe processes of this install that are alive (empty when the guard is unavailable)."""
+    if bb_guard is None:
+        return []
+    try:
+        return bb_guard.find_instances(APP_DIR / "out")
+    except Exception:
+        return []
+
+
 def kill_tree(proc: subprocess.Popen):
     """Kill run.bat and everything it started (bbport.exe included)."""
     if os.name == "nt":
@@ -105,8 +133,41 @@ def kill_tree(proc: subprocess.Popen):
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             creationflags=NO_WINDOW,
         )
+        # The tree walk misses a bbport.exe orphaned by an in-game restart or a hung crash handler.
+        for instance in running_instances():
+            bb_guard.terminate(instance.pid)
     else:
         proc.kill()
+
+
+def rotate_log():
+    """Keep the previous launcher.log in logs/ instead of overwriting it: the log of a crash is the one to keep."""
+    try:
+        if LOG_FILE.is_file() and LOG_FILE.stat().st_size > 0:
+            LOG_DIR.mkdir(exist_ok=True)
+            stamp = datetime.fromtimestamp(LOG_FILE.stat().st_mtime).strftime("%Y%m%d_%H%M%S")
+            LOG_FILE.replace(LOG_DIR / f"launcher_{stamp}.log")
+            for old in sorted(LOG_DIR.glob("launcher_*.log"))[:-LOG_KEEP]:
+                old.unlink()
+    except OSError:
+        pass
+
+
+def acquire_single_instance():
+    """True for the first launcher of this install; a second window could start a second game."""
+    if os.name != "nt":
+        return True
+    try:
+        import ctypes
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        name = "Local\\BloodborneLauncher_" + hashlib.md5(str(APP_DIR).lower().encode()).hexdigest()[:12]
+        handle = kernel32.CreateMutexW(None, False, name)
+        if handle and ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS
+            return False
+        _instance_mutex.append(handle)  # held until the process exits
+    except Exception:
+        pass
+    return True
 
 
 class BloodborneLauncher(tk.Tk):
@@ -377,6 +438,8 @@ class BloodborneLauncher(tk.Tk):
         ttk.Button(bar, text="Clear", style="Secondary.TButton", command=self.clear_log).pack(side="left")
         ttk.Button(bar, text="Open launcher.log", style="Secondary.TButton",
                    command=self.open_log_file).pack(side="left", padx=6)
+        ttk.Button(bar, text="Reset shader cache", style="Secondary.TButton",
+                   command=self.reset_shader_cache).pack(side="right")
 
         # log text + scrollbar
         log_frame = ttk.Frame(main)
@@ -948,6 +1011,30 @@ class BloodborneLauncher(tk.Tk):
         except (AttributeError, OSError) as ex:
             messagebox.showerror("Error", f"Could not open {LOG_FILE}:\n{ex}")
 
+    def reset_shader_cache(self):
+        """Delete the pipeline cache: a damaged entry draws parts of an area wrong until then."""
+        if self.proc is not None and self.proc.poll() is None:
+            messagebox.showinfo("Reset shader cache", "Close the game first.")
+            return
+        cache_dir = shader_cache_dir()
+        files = [p for p in cache_dir.rglob("*") if p.is_file()] if cache_dir.is_dir() else []
+        if not files:
+            messagebox.showinfo("Reset shader cache", "The shader cache is already empty.")
+            return
+        if not messagebox.askyesno(
+                "Reset shader cache",
+                f"Delete the shader cache ({len(files)} files in {cache_dir})?\n\n"
+                "Use it when an area is drawn wrong (missing or broken textures) on this PC "
+                "but not on others. The game compiles the shaders again while you play: a few "
+                "more stutters the first time each area is visited."):
+            return
+        try:
+            shutil.rmtree(cache_dir)
+        except OSError as ex:
+            messagebox.showerror("Reset shader cache", f"Could not delete {cache_dir}:\n{ex}")
+            return
+        self.log(f"[CACHE] Shader cache deleted ({len(files)} files); it is rebuilt while playing.")
+
     # ------------------------------------------------------------- actions
     def import_saves(self):
         """Copies the saves of another installation of the port into this one."""
@@ -1125,8 +1212,40 @@ class BloodborneLauncher(tk.Tk):
             self.log(f"[PRE-LAUNCH ERROR] {err_msg.splitlines()[0]}")
             messagebox.showerror("Pre-Launch Verification Failed", err_msg)
 
+    def blocked_by_running_instance(self) -> bool:
+        """True while another bbport.exe is alive: a second copy exhausts RAM and VRAM.
+
+        The launch stays blocked until the old process is gone, closed by hand or terminated here.
+        """
+        found = running_instances()
+        if not found:
+            return False
+        lines = "\n".join(bb_guard.describe(i) for i in found)
+        self.log(f"[PRE-LAUNCH] bbport.exe is already running ({lines.replace(chr(10), '; ')})")
+        if not messagebox.askyesno(
+                "Bloodborne is already running",
+                f"bbport.exe is still running:\n\n{lines}\n\n"
+                "A second copy would run out of memory, so the launch is blocked until it is gone.\n"
+                "Terminate it now and continue?",
+                icon="warning"):
+            self.log("[PRE-LAUNCH] Launch cancelled: close the running bbport.exe first.")
+            return True
+        survivors = [i.pid for i in found if not bb_guard.terminate(i.pid)]
+        if survivors:
+            self.log(f"[PRE-LAUNCH ERROR] Could not terminate PID {', '.join(map(str, survivors))}")
+            messagebox.showerror(
+                "Cannot terminate bbport.exe",
+                f"PID {', '.join(map(str, survivors))} did not exit (stuck in the GPU driver?).\n"
+                "End it in Task Manager or restart Windows, then launch again.")
+            return True
+        self.log("[PRE-LAUNCH] Old bbport.exe terminated.")
+        return False
+
     def launch_game(self):
         if self.proc is not None:
+            return
+
+        if self.blocked_by_running_instance():
             return
 
         target = self.eboot_var.get().strip()
@@ -1208,6 +1327,7 @@ class BloodborneLauncher(tk.Tk):
         else:
             env.pop("BB_PATCHES", None)
 
+        rotate_log()
         try:
             self.log_fh = open(LOG_FILE, "w", encoding="utf-8")
         except OSError:
@@ -1277,6 +1397,9 @@ class BloodborneLauncher(tk.Tk):
             self.log(f"({self.hidden_count} Vulkan warning lines hidden; full output is in launcher.log)")
         code = f"{rc}" if 0 <= rc < 256 else f"{rc} (0x{rc & 0xFFFFFFFF:08X})"
         self.log(f"Process finished with code: {code}")
+        for instance in running_instances():
+            self.log(f"[WARNING] bbport.exe is still running after the game ended "
+                     f"({bb_guard.describe(instance)}); the next launch will ask to terminate it.")
         self.proc = None
         self.close_log_file()
         self.launch_btn.config(state="normal")
@@ -1300,4 +1423,8 @@ class BloodborneLauncher(tk.Tk):
 
 
 if __name__ == "__main__":
+    if not acquire_single_instance():
+        tk.Tk().withdraw()
+        messagebox.showinfo("Bloodborne PC Launcher", "The launcher is already open.")
+        sys.exit(0)
     BloodborneLauncher().mainloop()
